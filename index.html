@@ -1256,6 +1256,17 @@
             <button class="btn secondary" id="importDataBtn">导入配置 JSON</button>
             <input type="file" id="importFile" accept=".json" style="display:none" />
           </div>
+
+          <div style="margin-top:18px;">
+            <h3 style="font-size:14px;color:var(--brand-dark);margin-bottom:8px;">本地备份（推荐）</h3>
+            <p style="font-size:12px;color:var(--text-secondary);margin-bottom:10px;">一键把当前所有配置（纸张/吊绳/工艺/客户等级/历史/快照）打包保存到本机文件；换浏览器或换电脑时用「恢复本地备份」一键还原。</p>
+            <div class="btn-group">
+              <button class="btn" id="exportLocalBackupBtn">保存到本地文件</button>
+              <button class="btn secondary" id="importLocalBackupBtn">从本地文件恢复</button>
+              <input type="file" id="importLocalBackupFile" accept=".json" style="display:none" />
+            </div>
+            <div id="localBackupStatus" style="margin-top:10px;font-size:13px;color:var(--text-secondary);"></div>
+          </div>
           <div style="margin-top:18px;">
             <h3 style="font-size:14px;color:var(--brand-dark);margin-bottom:8px;">本地快照列表</h3>
             <table class="data-table" id="snapshotTable">
@@ -1360,7 +1371,7 @@
         <div class="setting-row">
           <div class="setting-info">
             <div class="setting-label">当前版本</div>
-            <div class="setting-desc">海洋吊牌报价系统 v3.0</div>
+            <div class="setting-desc">海洋吊牌报价系统 v3.1</div>
           </div>
           <div class="setting-control">
             <span class="placeholder-badge">开发版</span>
@@ -3703,6 +3714,10 @@
       tabPanels: document.querySelectorAll(".tab-panel"),
       exportDataBtn: document.getElementById("exportDataBtn"),
       importDataBtn: document.getElementById("importDataBtn"),
+      exportLocalBackupBtn: document.getElementById("exportLocalBackupBtn"),
+      importLocalBackupBtn: document.getElementById("importLocalBackupBtn"),
+      importLocalBackupFile: document.getElementById("importLocalBackupFile"),
+      localBackupStatus: document.getElementById("localBackupStatus"),
       importFile: document.getElementById("importFile"),
       exportExcelBtn: document.getElementById("exportExcelBtn"),
       importExcelBtn: document.getElementById("importExcelBtn"),
@@ -4413,10 +4428,92 @@
       return div.innerHTML;
     }
 
+    // -------------------- 本地备份 / 恢复 --------------------
+    function setLocalBackupStatus(html, isError) {
+      if (!els.localBackupStatus) return;
+      els.localBackupStatus.innerHTML = html;
+      els.localBackupStatus.style.color = isError ? "var(--danger)" : "var(--text-secondary)";
+    }
+
+    function exportLocalBackup() {
+      const data = {
+        version: "3.1",
+        kind: "local-backup",
+        exportAt: new Date().toISOString(),
+        customerLevels: CUSTOMER_LEVELS,
+        appProfile: APP_PROFILE,
+        paperConfig: PAPER_CONFIG,
+        ropeConfig: ROPE_CONFIG,
+        craftConfig: CRAFT_CONFIG,
+        snapshots: getSnapshots(),
+        history: getHistory()
+      };
+      downloadJson(data, "海洋吊牌本地备份_" + formatDateFile() + ".json");
+      setLocalBackupStatus(`已保存到本地文件（${new Date().toLocaleString()}）。建议同时存一份到 U 盘 / 网盘。`, false);
+      showToast("本地备份已下载");
+    }
+
+    function importLocalBackup(file) {
+      if (!file) return;
+      if (!confirm("恢复本地备份会覆盖当前所有配置（纸张/吊绳/工艺/客户等级/历史/快照）。是否继续？")) {
+        if (els.importLocalBackupFile) els.importLocalBackupFile.value = "";
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = e => {
+        try {
+          const data = JSON.parse(e.target.result);
+          if (data.kind && data.kind !== "local-backup" && data.kind !== "full-config") {
+            throw new Error("文件类型不匹配，请使用「保存到本地文件」生成的文件");
+          }
+          if (data.customerLevels) {
+            CUSTOMER_LEVELS = data.customerLevels;
+            saveToStorage("customerLevels", CUSTOMER_LEVELS);
+          }
+          if (data.appProfile) {
+            APP_PROFILE = data.appProfile;
+            saveToStorage("appProfile", APP_PROFILE);
+          }
+          if (data.paperConfig) {
+            PAPER_CONFIG = data.paperConfig;
+            saveToStorage("paperConfig", PAPER_CONFIG);
+            rebuildPaperUI();
+          }
+          if (data.ropeConfig) {
+            ROPE_CONFIG = data.ropeConfig;
+            saveToStorage("ropeConfig", ROPE_CONFIG);
+            rebuildRopeUI();
+          }
+          if (data.craftConfig) {
+            CRAFT_CONFIG = data.craftConfig;
+            saveToStorage("craftConfig", CRAFT_CONFIG);
+          }
+          if (data.snapshots) saveSnapshots(data.snapshots);
+          if (data.history) saveHistory(data.history);
+          renderLevelSettings();
+          loadProfileToUI();
+          renderSnapshots();
+          renderHistory();
+          onCalculate();
+          setLocalBackupStatus(`已从本地文件恢复：${file.name}（${new Date().toLocaleString()}）`, false);
+          showToast("本地备份已恢复");
+        } catch (err) {
+          setLocalBackupStatus("恢复失败：" + err.message, true);
+          showToast("本地备份恢复失败");
+        }
+        if (els.importLocalBackupFile) els.importLocalBackupFile.value = "";
+      };
+      reader.onerror = () => {
+        setLocalBackupStatus("文件读取失败", true);
+        if (els.importLocalBackupFile) els.importLocalBackupFile.value = "";
+      };
+      reader.readAsText(file);
+    }
+
     // -------------------- 导入 / 导出完整配置 --------------------
     function exportFullData() {
       const data = {
-        version: "3.0",
+        version: "3.1",
         exportAt: new Date().toISOString(),
         customerLevels: CUSTOMER_LEVELS,
         appProfile: APP_PROFILE,
@@ -5004,6 +5101,9 @@
       if (els.exportDataBtn) els.exportDataBtn.addEventListener("click", exportFullData);
       if (els.importDataBtn) els.importDataBtn.addEventListener("click", () => els.importFile.click());
       if (els.importFile) els.importFile.addEventListener("change", e => importFullData(e.target.files[0]));
+      if (els.exportLocalBackupBtn) els.exportLocalBackupBtn.addEventListener("click", exportLocalBackup);
+      if (els.importLocalBackupBtn) els.importLocalBackupBtn.addEventListener("click", () => els.importLocalBackupFile.click());
+      if (els.importLocalBackupFile) els.importLocalBackupFile.addEventListener("change", e => importLocalBackup(e.target.files[0]));
       if (els.exportExcelBtn) els.exportExcelBtn.addEventListener("click", exportPaperExcel);
       if (els.importExcelBtn) els.importExcelBtn.addEventListener("click", () => els.importExcelFile.click());
       if (els.importExcelFile) els.importExcelFile.addEventListener("change", e => importPaperExcel(e.target.files[0]));
