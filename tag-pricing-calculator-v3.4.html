@@ -475,14 +475,16 @@
     }
 
     .price-missing {
+      /* 低调占位：与正文同色系但弱化，避免抢眼 */
       display: inline-block;
-      padding: 2px 8px;
-      background: var(--warning-light, #fef3c7);
-      color: var(--warning, #b45309);
-      border: 1px dashed var(--warning-border, #fbbf24);
-      border-radius: 6px;
+      padding: 1px 6px;
+      color: #94a3b8;                  /* 浅灰文字 */
+      background: transparent;          /* 无背景 */
       font-size: 12px;
-      font-weight: 500;
+      font-weight: 400;
+      letter-spacing: 0.2px;
+      border: 0;
+      white-space: nowrap;
     }
 
     .sheet-result-table {
@@ -6207,11 +6209,12 @@
       }
 
       els.resTier.textContent = result.tier + " 张";
-      els.resPaperPrice.textContent = result.paperTotal ? "¥ " + formatMoney(result.paperTotal) : '<span class="price-missing">无该批量定价</span>';
-      els.resCraftPrice.textContent = result.craftTotal ? "¥ " + formatMoney(result.craftTotal) : '<span class="price-missing">无该批量定价</span>';
-      els.resRopePrice.textContent = result.ropePrice != null ? "¥ " + formatMoney(result.ropePrice) : '<span class="price-missing">无该批量定价</span>';
-      els.resShippingPrice.textContent = result.shippingPrice != null ? "¥ " + formatMoney(result.shippingPrice) : '<span class="price-missing">无该批量定价</span>';
-      els.resCost.textContent = result.costIncomplete
+      // 占位需用 innerHTML 渲染（textContent 会把 HTML 当文本输出，导致徽章源码可见）
+      els.resPaperPrice.innerHTML = result.paperTotal ? "¥ " + formatMoney(result.paperTotal) : '<span class="price-missing">无该批量定价</span>';
+      els.resCraftPrice.innerHTML = result.craftTotal ? "¥ " + formatMoney(result.craftTotal) : '<span class="price-missing">无该批量定价</span>';
+      els.resRopePrice.innerHTML = result.ropePrice != null ? "¥ " + formatMoney(result.ropePrice) : '<span class="price-missing">无该批量定价</span>';
+      els.resShippingPrice.innerHTML = result.shippingPrice != null ? "¥ " + formatMoney(result.shippingPrice) : '<span class="price-missing">无该批量定价</span>';
+      els.resCost.innerHTML = result.costIncomplete
         ? '<span class="price-missing">部分缺价</span>'
         : "¥ " + formatMoney(result.cost);
 
