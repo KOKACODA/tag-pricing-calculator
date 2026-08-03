@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>海洋吊牌报价系统 v3.2</title>
+  <title>海洋吊牌报价系统 v3.3</title>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
   <style>
     /* ===================== 全局变量与重置 ===================== */
@@ -1310,6 +1310,28 @@
         </div>
         <div class="setting-row">
           <div class="setting-info">
+            <div class="setting-label">默认吊绳类型</div>
+            <div class="setting-desc">打开计算器时吊绳单选默认选中</div>
+          </div>
+          <div class="setting-control">
+            <select id="defaultRope">
+              <option value="">跟随默认（普通吊绳）</option>
+            </select>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-info">
+            <div class="setting-label">默认纸张材质</div>
+            <div class="setting-desc">打开计算器时默认显示的报价表</div>
+          </div>
+          <div class="setting-control">
+            <select id="defaultPaper">
+              <option value="">跟随默认（报价表 3）</option>
+            </select>
+          </div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-info">
             <div class="setting-label">报价小数位数</div>
             <div class="setting-desc">显示金额保留几位小数</div>
           </div>
@@ -1364,7 +1386,7 @@
         <div class="setting-row">
           <div class="setting-info">
             <div class="setting-label">当前版本</div>
-            <div class="setting-desc">海洋吊牌报价系统 v3.2</div>
+            <div class="setting-desc">海洋吊牌报价系统 v3.3</div>
           </div>
           <div class="setting-control">
             <span class="placeholder-badge">开发版</span>
@@ -3489,8 +3511,13 @@
       companyName: "海洋吊牌厂",
       companyPhone: "",
       defaultTier: "",
+      defaultRope: "rope1",
+      defaultPaperId: "",
       decimalPlaces: 2
     });
+    // 旧版配置容错
+    if (typeof APP_PROFILE.defaultRope === "undefined") APP_PROFILE.defaultRope = "rope1";
+    if (typeof APP_PROFILE.defaultPaperId === "undefined") APP_PROFILE.defaultPaperId = "";
 
     // ============================================================
     // ===================== 计算逻辑层（非必要请勿修改） =====================
@@ -3702,6 +3729,8 @@
       companyName: document.getElementById("companyName"),
       companyPhone: document.getElementById("companyPhone"),
       defaultTier: document.getElementById("defaultTier"),
+      defaultRope: document.getElementById("defaultRope"),
+      defaultPaper: document.getElementById("defaultPaper"),
       decimalPlaces: document.getElementById("decimalPlaces"),
       saveProfileBtn: document.getElementById("saveProfileBtn"),
       exportProfileBtn: document.getElementById("exportProfileBtn"),
@@ -3744,12 +3773,21 @@
       updateTierOptions(true);
 
       // 吊绳（三列单选）
-      els.rope.innerHTML = ROPE_CONFIG.map((r, i) => `
+      els.rope.innerHTML = renderRopeRadios();
+
+    // 根据 APP_PROFILE.defaultRope 生成吊绳单选项 HTML
+    function renderRopeRadios() {
+      const fallback = "rope1"; // 默认「普通吊绳」
+      const desired = APP_PROFILE.defaultRope || fallback;
+      const hasDesired = ROPE_CONFIG.some(r => r.id === desired);
+      const checkedId = hasDesired ? desired : (ROPE_CONFIG.find(r => r.id === fallback) ? fallback : (ROPE_CONFIG[0] && ROPE_CONFIG[0].id));
+      return ROPE_CONFIG.map(r => `
         <label class="rope-item">
-          <input type="radio" name="rope" value="${r.id}"${i === 0 ? " checked" : ""} />
+          <input type="radio" name="rope" value="${r.id}"${r.id === checkedId ? " checked" : ""} />
           <span>${r.name}</span>
         </label>
       `).join("");
+    }
 
       // 地区
       els.region.innerHTML = '<option value="">请选择地区</option>' +
@@ -4219,6 +4257,10 @@
       if (els.decimalPlaces) els.decimalPlaces.value = APP_PROFILE.decimalPlaces || 2;
       updateDefaultTierOptions();
       if (els.defaultTier) els.defaultTier.value = APP_PROFILE.defaultTier || "";
+      updateDefaultRopeOptions();
+      if (els.defaultRope) els.defaultRope.value = APP_PROFILE.defaultRope || "rope1";
+      updateDefaultPaperOptions();
+      if (els.defaultPaper) els.defaultPaper.value = APP_PROFILE.defaultPaperId || "";
     }
 
     function updateDefaultTierOptions() {
@@ -4231,11 +4273,29 @@
         tiers.map(t => `<option value="${t}">${t} 张</option>`).join("");
     }
 
+    function updateDefaultRopeOptions() {
+      if (!els.defaultRope) return;
+      const opts = ['<option value="">跟随默认（普通吊绳）</option>'].concat(
+        ROPE_CONFIG.map(r => `<option value="${r.id}">${r.name}</option>`)
+      );
+      els.defaultRope.innerHTML = opts.join("");
+    }
+
+    function updateDefaultPaperOptions() {
+      if (!els.defaultPaper) return;
+      const opts = ['<option value="">跟随默认（报价表 3）</option>'].concat(
+        PAPER_CONFIG.map(p => `<option value="${p.id}">${p.shortName || p.name}</option>`)
+      );
+      els.defaultPaper.innerHTML = opts.join("");
+    }
+
     function saveProfile() {
       APP_PROFILE = {
         companyName: els.companyName.value.trim(),
         companyPhone: els.companyPhone.value.trim(),
         defaultTier: els.defaultTier.value,
+        defaultRope: els.defaultRope.value || "rope1",
+        defaultPaperId: els.defaultPaper.value || "",
         decimalPlaces: parseInt(els.decimalPlaces.value, 10) || 2
       };
       saveToStorage("appProfile", APP_PROFILE);
@@ -4432,7 +4492,7 @@
 
     function exportLocalBackup() {
       const data = {
-        version: "3.2",
+        version: "3.3",
         kind: "local-backup",
         exportAt: new Date().toISOString(),
         customerLevels: CUSTOMER_LEVELS,
@@ -4508,7 +4568,7 @@
     // -------------------- 导入 / 导出完整配置 --------------------
     function exportFullData() {
       const data = {
-        version: "3.2",
+        version: "3.3",
         exportAt: new Date().toISOString(),
         customerLevels: CUSTOMER_LEVELS,
         appProfile: APP_PROFILE,
@@ -5025,13 +5085,8 @@
     }
 
     function rebuildRopeUI() {
-      // 重新渲染吊绳选择区
-      els.rope.innerHTML = ROPE_CONFIG.map((r, i) => `
-        <label class="rope-item">
-          <input type="radio" name="rope" value="${r.id}"${i === 0 ? " checked" : ""} />
-          <span>${r.name}</span>
-        </label>
-      `).join("");
+      // 重新渲染吊绳选择区（沿用与初始化一致的默认选择逻辑）
+      els.rope.innerHTML = renderRopeRadios();
     }
 
     // -------------------- 页面切换增强 --------------------
@@ -5130,6 +5185,16 @@
     if (APP_PROFILE.defaultTier && els.tier) {
       const tierExists = Array.from(els.tier.options).some(o => o.value === String(APP_PROFILE.defaultTier));
       if (tierExists) els.tier.value = String(APP_PROFILE.defaultTier);
+    }
+
+    // 应用个人主页的默认纸张材质设置
+    if (APP_PROFILE.defaultPaperId) {
+      const idx = PAPER_CONFIG.findIndex(p => p.id === APP_PROFILE.defaultPaperId);
+      if (idx >= 0) {
+        currentPaperIndex = idx;
+        if (typeof updatePaperUI === "function") updatePaperUI();
+        else if (typeof renderPaper === "function") renderPaper();
+      }
     }
   </script>
 </body>
