@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>海洋吊牌报价系统 v2.9</title>
+  <title>海洋吊牌报价系统 v3.0</title>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
   <style>
     /* ===================== 全局变量与重置 ===================== */
@@ -406,6 +406,39 @@
       padding: 10px 0;
     }
 
+    /* 每张纸的展开尺寸输入 */
+    .sheet-size-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 90px;
+      gap: 10px;
+      margin-top: 12px;
+      margin-bottom: 12px;
+    }
+
+    .sheet-size-row .form-group {
+      margin-bottom: 0;
+    }
+
+    .sheet-size-row label {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .sheet-size-row input,
+    .sheet-size-row select {
+      padding: 9px 10px;
+      font-size: 14px;
+    }
+
+    @media (max-width: 480px) {
+      .sheet-size-row {
+        grid-template-columns: 1fr 1fr;
+      }
+      .sheet-size-row .size-type-group {
+        grid-column: 1 / -1;
+      }
+    }
+
     /* ===================== 结果展示区 ===================== */
     .result-section {
       display: grid;
@@ -440,6 +473,34 @@
       color: var(--danger);
       font-size: 13px;
       line-height: 1.6;
+    }
+
+    .sheet-result-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 13px;
+    }
+
+    .sheet-result-table th,
+    .sheet-result-table td {
+      padding: 8px 10px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sheet-result-table th {
+      color: var(--text-secondary);
+      font-weight: 600;
+      background: #f1f5f9;
+    }
+
+    .sheet-result-table td {
+      color: var(--text);
+    }
+
+    .sheet-result-table tr:last-child td {
+      border-bottom: none;
     }
 
     .price-cards {
@@ -974,28 +1035,7 @@
         </div>
 
         <div class="form-group">
-          <label>吊牌展开尺寸 <span class="hint">自动加 3mm 出血计算</span></label>
-          <div class="size-row">
-            <div class="form-group">
-              <label for="width" class="unit">宽 (mm)</label>
-              <input type="number" id="width" min="1" step="1" placeholder="例如 55" />
-            </div>
-            <div class="form-group">
-              <label for="length" class="unit">长 (mm)</label>
-              <input type="number" id="length" min="1" step="1" placeholder="例如 30" />
-            </div>
-          </div>
-          <div class="form-group" style="margin-top: 10px; margin-bottom: 0;">
-            <label for="sizeType">尺寸类型</label>
-            <select id="sizeType">
-              <option value="single">单张尺寸</option>
-              <option value="spread">展开尺寸</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label>纸张设置</label>
+          <label>纸张设置 <span class="hint">每张纸可设置不同展开尺寸</span></label>
           <div id="sheetList" class="sheet-list"></div>
         </div>
 
@@ -1015,13 +1055,14 @@
       <div class="card">
         <h2 class="card-title">报价结果</h2>
         <div class="result-section" id="resultArea">
-          <div class="result-row">
-            <span class="result-label">计算面积（含出血）</span>
-            <span class="result-value" id="resArea">-</span>
-          </div>
-          <div class="result-row">
-            <span class="result-label">匹配尺寸代码</span>
-            <span class="result-value" id="resCode">-</span>
+          <div class="result-row" style="flex-direction:column;align-items:flex-start;">
+            <span class="result-label">各纸张尺寸 / 面积 / 代码</span>
+            <table class="sheet-result-table" id="resSheetTable">
+              <thead>
+                <tr><th>纸张</th><th>尺寸 (mm)</th><th>面积 (mm²)</th><th>代码</th></tr>
+              </thead>
+              <tbody></tbody>
+            </table>
           </div>
           <div class="result-row">
             <span class="result-label">匹配批量档位</span>
@@ -1319,7 +1360,7 @@
         <div class="setting-row">
           <div class="setting-info">
             <div class="setting-label">当前版本</div>
-            <div class="setting-desc">海洋吊牌报价系统 v2.9</div>
+            <div class="setting-desc">海洋吊牌报价系统 v3.0</div>
           </div>
           <div class="setting-control">
             <span class="placeholder-badge">开发版</span>
@@ -3516,16 +3557,16 @@
     }
 
     /**
-     * 标准计价流程：支持多纸张、单张/展开尺寸、统一批量档位。
+     * 标准计价流程：支持多纸张、每张纸独立吊牌展开尺寸、统一批量档位。
      */
     function calculate(inputs) {
-      const { length, width, sizeType, sheetCount, tier, sheets, ropeId, regionId } = inputs;
+      const { sheetCount, tier, sheets, ropeId, regionId } = inputs;
 
       // 校验基础参数
-      if (!length || !width || !sheetCount || !tier || !sheets || !ropeId || !regionId) {
+      if (!sheetCount || !tier || !sheets || !ropeId || !regionId) {
         return null;
       }
-      if (length <= 0 || width <= 0 || sheetCount <= 0 || tier <= 0) {
+      if (sheetCount <= 0 || tier <= 0) {
         return null;
       }
       if (!Array.isArray(sheets) || sheets.length !== sheetCount) {
@@ -3536,31 +3577,23 @@
       const region = SHIPPING_CONFIG.find(s => s.id === regionId);
       if (!rope || !region) return null;
 
-      // 步骤1：单张含出血面积
-      const singleArea = calcBleedArea(length, width);
-
-      // 步骤2：有效匹配面积
-      // 纸张数量仅决定纸张张数，不影响单张匹配面积；
-      // 单张尺寸与展开尺寸均直接以用户输入的长宽计算含出血面积。
-      const matchArea = singleArea;
-
-      // 步骤3：用第一张纸匹配尺寸代码作为代表
-      const firstPaper = PAPER_CONFIG.find(p => p.id === sheets[0].paperId);
-      if (!firstPaper) return null;
-      const firstSpec = matchSpec(firstPaper, matchArea);
-      if (firstSpec && firstSpec.error) {
-        return { error: firstSpec.message };
-      }
-
-      // 步骤4-5：逐张纸计算纸张折后价与工艺费用
+      // 逐张纸计算：每张纸有独立的宽、长、尺寸类型
       let paperTotal = 0;
       let craftTotal = 0;
       const warnings = [];
+      const sheetDetails = [];
+
       for (const sheet of sheets) {
-        const paper = PAPER_CONFIG.find(p => p.id === sheet.paperId);
+        const { width, length, sizeType, paperId, craftIds } = sheet;
+        if (!width || !length || width <= 0 || length <= 0) return null;
+
+        const paper = PAPER_CONFIG.find(p => p.id === paperId);
         if (!paper) return null;
 
-        const spec = matchSpec(paper, matchArea);
+        // 单张含出血面积（单张尺寸 / 展开尺寸目前均按输入长宽直接计算）
+        const singleArea = calcBleedArea(length, width);
+
+        const spec = matchSpec(paper, singleArea);
         if (spec && spec.error) {
           return { error: spec.message };
         }
@@ -3573,29 +3606,38 @@
 
         // 工艺费用
         const crafts = CRAFT_CONFIG[sheet.paperId] || [];
-        if (sheet.craftIds && sheet.craftIds.length) {
-          for (const cid of sheet.craftIds) {
+        if (craftIds && craftIds.length) {
+          for (const cid of craftIds) {
             const craft = crafts.find(c => c.id === cid);
             if (craft) {
               craftTotal += getPriceByTier(craft.prices, tier);
             }
           }
         }
+
+        sheetDetails.push({
+          paperName: paper.shortName || paper.name,
+          width,
+          length,
+          sizeType,
+          area: singleArea,
+          code: spec.code
+        });
       }
 
-      // 步骤6：吊绳费用
+      // 吊绳费用
       const ropePrice = getPriceByTier(rope.prices, tier);
 
-      // 步骤7：邮费（使用单张面积判断小面积折扣）
+      // 邮费（以第一张纸的面积判断小面积折扣）
       let shippingPrice = getPriceByTier(region.basePrices, tier);
-      if (singleArea < region.smallAreaThreshold) {
+      if (sheetDetails.length && sheetDetails[0].area < region.smallAreaThreshold) {
         shippingPrice *= region.discount;
       }
 
-      // 步骤8：成本合计
+      // 成本合计
       const cost = paperTotal + craftTotal + ropePrice + shippingPrice;
 
-      // 步骤9：三个客户等级的建议报价
+      // 三个客户等级的建议报价
       const pricesByLevel = CUSTOMER_LEVELS.map(level => ({
         levelId: level.id,
         levelName: level.name,
@@ -3604,17 +3646,15 @@
       }));
 
       return {
-        singleArea: singleArea,
-        matchArea: matchArea,
-        specCode: firstSpec.code,
-        tier: tier,
-        paperTotal: paperTotal,
-        craftTotal: craftTotal,
-        ropePrice: ropePrice,
-        shippingPrice: shippingPrice,
-        cost: cost,
-        pricesByLevel: pricesByLevel,
-        warnings: warnings
+        sheetDetails,
+        tier,
+        paperTotal,
+        craftTotal,
+        ropePrice,
+        shippingPrice,
+        cost,
+        pricesByLevel,
+        warnings
       };
     }
 
@@ -3627,15 +3667,11 @@
       pages: document.querySelectorAll(".page"),
       tier: document.getElementById("tier"),
       sheetCount: document.getElementById("sheetCount"),
-      length: document.getElementById("length"),
-      width: document.getElementById("width"),
-      sizeType: document.getElementById("sizeType"),
       sheetList: document.getElementById("sheetList"),
       rope: document.getElementById("rope"),
       region: document.getElementById("region"),
       priceCards: document.getElementById("priceCards"),
-      resArea: document.getElementById("resArea"),
-      resCode: document.getElementById("resCode"),
+      resSheetTable: document.getElementById("resSheetTable"),
       resTier: document.getElementById("resTier"),
       resPaperPrice: document.getElementById("resPaperPrice"),
       resCraftPrice: document.getElementById("resCraftPrice"),
@@ -3754,7 +3790,10 @@
         const old = sheetsState[i];
         newSheets.push({
           paperId: old && old.paperId ? old.paperId : "paper3",
-          craftIds: old && old.craftIds ? old.craftIds.slice() : []
+          craftIds: old && old.craftIds ? old.craftIds.slice() : [],
+          width: old && old.width ? old.width : "",
+          length: old && old.length ? old.length : "",
+          sizeType: old && old.sizeType ? old.sizeType : "single"
         });
       }
       sheetsState = newSheets;
@@ -3800,6 +3839,26 @@
             </div>
           </div>
           <div class="form-group" style="margin-bottom: 0;">
+            <label>吊牌展开尺寸 <span class="hint">自动加 3mm 出血</span></label>
+            <div class="sheet-size-row">
+              <div class="form-group">
+                <label class="unit">宽 (mm)</label>
+                <input type="number" class="sheet-width" data-sheet="${index}" min="1" step="1" placeholder="55" value="${sheet.width}" />
+              </div>
+              <div class="form-group">
+                <label class="unit">长 (mm)</label>
+                <input type="number" class="sheet-length" data-sheet="${index}" min="1" step="1" placeholder="30" value="${sheet.length}" />
+              </div>
+              <div class="form-group size-type-group">
+                <label class="unit">类型</label>
+                <select class="sheet-size-type" data-sheet="${index}">
+                  <option value="single"${sheet.sizeType === "single" ? " selected" : ""}>单张尺寸</option>
+                  <option value="spread"${sheet.sizeType === "spread" ? " selected" : ""}>展开尺寸</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom: 0; margin-top: 12px;">
             <label>附加工艺</label>
             <div class="craft-list">${craftHtml}</div>
           </div>
@@ -3824,6 +3883,11 @@
       });
       els.sheetList.querySelectorAll("input[type=checkbox][data-craft]").forEach(cb => {
         cb.addEventListener("change", onCraftChange);
+      });
+      // 绑定每张纸的尺寸输入
+      els.sheetList.querySelectorAll(".sheet-width, .sheet-length, .sheet-size-type").forEach(input => {
+        input.addEventListener("input", onSheetSizeChange);
+        input.addEventListener("change", onSheetSizeChange);
       });
 
       // 若第一张纸发生变化，需要更新档位选项
@@ -3867,24 +3931,47 @@
       onCalculate();
     }
 
+    function onSheetSizeChange(e) {
+      const index = Number(e.target.dataset.sheet);
+      const input = e.target;
+      if (input.classList.contains("sheet-width")) {
+        sheetsState[index].width = input.value;
+      } else if (input.classList.contains("sheet-length")) {
+        sheetsState[index].length = input.value;
+      } else if (input.classList.contains("sheet-size-type")) {
+        sheetsState[index].sizeType = input.value;
+      }
+      onCalculate();
+    }
+
     // -------------------- 实时计算 --------------------
     function onCalculate() {
-      const length = parseFloat(els.length.value);
-      const width = parseFloat(els.width.value);
       const sheetCount = parseInt(els.sheetCount.value, 10);
       const tier = parseInt(els.tier.value, 10);
-      const sizeType = els.sizeType.value;
       const ropeId = els.rope.querySelector('input[name="rope"]:checked')?.value || "";
       const regionId = els.region.value;
 
-      // 输入为空/0/负数时显示 "-"
-      if (!length || !width || !sheetCount || !tier || !ropeId || !regionId || length <= 0 || width <= 0 || sheetCount <= 0 || tier <= 0) {
+      if (!sheetCount || !tier || !ropeId || !regionId || sheetCount <= 0 || tier <= 0) {
         clearResult();
         return;
       }
 
-      const sheets = sheetsState.map(s => ({ paperId: s.paperId, craftIds: s.craftIds.slice() }));
-      const result = calculate({ length, width, sizeType, sheetCount, tier, sheets, ropeId, regionId });
+      // 收集每张纸的纸材、工艺、尺寸
+      const sheets = sheetsState.map(s => ({
+        paperId: s.paperId,
+        craftIds: s.craftIds.slice(),
+        width: parseFloat(s.width),
+        length: parseFloat(s.length),
+        sizeType: s.sizeType
+      }));
+
+      // 只要有任何一张纸缺少有效尺寸就清空结果
+      if (sheets.some(s => !s.width || !s.length || s.width <= 0 || s.length <= 0)) {
+        clearResult();
+        return;
+      }
+
+      const result = calculate({ sheetCount, tier, sheets, ropeId, regionId });
 
       if (!result) {
         clearResult();
@@ -3897,8 +3984,19 @@
         return;
       }
 
-      els.resArea.textContent = result.matchArea + " mm²";
-      els.resCode.textContent = result.specCode;
+      // 渲染各纸张尺寸/面积/代码
+      if (els.resSheetTable) {
+        const tbody = els.resSheetTable.querySelector("tbody");
+        tbody.innerHTML = result.sheetDetails.map(s => `
+          <tr>
+            <td>${escapeHtml(s.paperName)}</td>
+            <td>${s.width} × ${s.length}${s.sizeType === "spread" ? "（展开）" : ""}</td>
+            <td>${s.area} mm²</td>
+            <td>${s.code}</td>
+          </tr>
+        `).join("");
+      }
+
       els.resTier.textContent = result.tier + " 张";
       els.resPaperPrice.textContent = "¥ " + formatMoney(result.paperTotal);
       els.resCraftPrice.textContent = "¥ " + formatMoney(result.craftTotal);
@@ -3925,8 +4023,9 @@
     }
 
     function clearResult() {
-      els.resArea.textContent = "-";
-      els.resCode.textContent = "-";
+      if (els.resSheetTable) {
+        els.resSheetTable.querySelector("tbody").innerHTML = "";
+      }
       els.resTier.textContent = "-";
       els.resPaperPrice.textContent = "-";
       els.resCraftPrice.textContent = "-";
@@ -4317,7 +4416,7 @@
     // -------------------- 导入 / 导出完整配置 --------------------
     function exportFullData() {
       const data = {
-        version: "2.9",
+        version: "3.0",
         exportAt: new Date().toISOString(),
         customerLevels: CUSTOMER_LEVELS,
         appProfile: APP_PROFILE,
@@ -4866,7 +4965,7 @@
         btn.addEventListener("click", () => switchPage(btn.dataset.page));
       });
 
-      [els.tier, els.length, els.width, els.sizeType, els.region].forEach(el => {
+      [els.tier, els.region].forEach(el => {
         el.addEventListener("input", onCalculate);
         el.addEventListener("change", onCalculate);
       });
