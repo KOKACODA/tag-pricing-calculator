@@ -4668,7 +4668,7 @@
 
         // 读取工艺区：查找 "工艺名称" 标题行
         const crafts = [];
-        const seenCraftNames = new Set();
+        const seenCraftKeys = new Set();
         let craftHeaderIndex = -1;
         for (let i = headerRowIndex + 1; i < rows.length; i++) {
           const row = rows[i];
@@ -4678,16 +4678,19 @@
           }
         }
         if (craftHeaderIndex !== -1) {
+          const paperNum = id.replace(/^paper/, "");
           for (let r = craftHeaderIndex + 1; r < rows.length; r++) {
             const row = rows[r];
             if (!row || !row.length) continue;
             const craftName = String(row[0] || "").trim();
             if (!craftName) continue;
-            if (seenCraftNames.has(craftName)) {
-              errors.push(`「${sheetName}」工艺「${craftName}」重复，已跳过第 ${r + 1} 行`);
+            // 允许同名工艺：用 (名称 + 行号) 作为去重键，避免误丢
+            const craftKey = craftName + "@row" + r;
+            if (seenCraftKeys.has(craftKey)) {
+              errors.push(`「${sheetName}」工艺「${craftName}」第 ${r + 1} 行重复，已跳过`);
               continue;
             }
-            seenCraftNames.add(craftName);
+            seenCraftKeys.add(craftKey);
             const prices = {};
             for (let i = 0; i < tierKeys.length; i++) {
               const tier = tierKeys[i];
@@ -4700,7 +4703,6 @@
                 prices[tier] = price;
               }
             }
-            const paperNum = id.replace(/^paper/, "");
             crafts.push({ id: `craft${paperNum}_${crafts.length + 1}`, name: craftName, prices });
           }
         }
