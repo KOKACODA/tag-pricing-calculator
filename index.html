@@ -4451,11 +4451,11 @@
     ];
 
     /**
-     * 测试阶段策略：纸张/工艺/吊绳/客户等级的配置始终使用内置 DEFAULT（云端），
+     * 测试阶段策略：纸张/工艺/吊绳的配置始终使用内置 DEFAULT（云端），
      * 不读写 localStorage。导入的本地数据仅在当前会话有效，刷新后自动丢弃。
-     * 报价历史、本地快照、APP_PROFILE 等仍正常持久化。
+     * 客户等级（毛利系数）、APP_PROFILE、报价历史、本地快照等正常持久化。
      */
-    const EPHEMERAL_KEYS = ["paperConfig", "craftConfig", "ropeConfig", "customerLevels"];
+    const EPHEMERAL_KEYS = ["paperConfig", "craftConfig", "ropeConfig"];
 
     // 测试阶段：启动时清空旧缓存的报价配置，始终使用内置 DEFAULT（云端）
     EPHEMERAL_KEYS.forEach(k => {
@@ -4472,7 +4472,8 @@
     Object.keys(DEFAULT_CRAFT_CONFIG).forEach(k => {
       CRAFT_CONFIG[k] = DEFAULT_CRAFT_CONFIG[k].map(c => ({ ...c, prices: { ...c.prices } }));
     });
-    let CUSTOMER_LEVELS = DEFAULT_CUSTOMER_LEVELS.map(l => ({ ...l }));
+    // 客户等级（毛利系数）持久化到 localStorage，刷新后保留用户自定义
+    let CUSTOMER_LEVELS = loadFromStorage("customerLevels", DEFAULT_CUSTOMER_LEVELS.map(l => ({ ...l })));
     let APP_PROFILE = loadFromStorage("appProfile", {
       companyName: "海洋吊牌厂",
       companyPhone: "",
@@ -5355,15 +5356,16 @@
 
     function saveProfile() {
       APP_PROFILE = {
-        companyName: els.companyName.value.trim(),
-        companyPhone: els.companyPhone.value.trim(),
-        defaultTier: els.defaultTier.value,
-        defaultRope: els.defaultRope.value || "rope1",
-        defaultPaperId: els.defaultPaper.value || "",
-        decimalPlaces: parseInt(els.decimalPlaces.value, 10) || 2
+        companyName: els.companyName ? els.companyName.value.trim() : APP_PROFILE.companyName,
+        companyPhone: els.companyPhone ? els.companyPhone.value.trim() : APP_PROFILE.companyPhone,
+        defaultTier: els.defaultTier ? els.defaultTier.value : APP_PROFILE.defaultTier,
+        defaultRope: els.defaultRope ? (els.defaultRope.value || "rope1") : APP_PROFILE.defaultRope,
+        defaultPaperId: els.defaultPaper ? (els.defaultPaper.value || "") : APP_PROFILE.defaultPaperId,
+        decimalPlaces: els.decimalPlaces ? (parseInt(els.decimalPlaces.value, 10) || 2) : APP_PROFILE.decimalPlaces
       };
       saveToStorage("appProfile", APP_PROFILE);
-      showToast("设置已保存到本地");
+      saveToStorage("customerLevels", CUSTOMER_LEVELS);
+      showToast("设置已保存");
       onCalculate();
     }
 
