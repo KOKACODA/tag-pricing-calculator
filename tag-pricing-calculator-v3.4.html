@@ -2270,7 +2270,7 @@
           </div>
           <div class="form-group">
             <label for="sheetCount">纸张数量（张）</label>
-            <input type="number" id="sheetCount" min="1" step="1" value="2">
+            <input type="number" id="sheetCount" min="1" step="1" value="1">
           </div>
         </div>
 
@@ -4852,8 +4852,8 @@
         newSheets.push({
           paperId: old && old.paperId ? old.paperId : "paper3",
           craftIds: old && old.craftIds ? old.craftIds.slice() : [],
-          width: old && old.width ? old.width : "",
-          length: old && old.length ? old.length : "",
+          width: old && old.width ? old.width : "55",
+          length: old && old.length ? old.length : "30",
           sizeType: old && old.sizeType ? old.sizeType : "single"
         });
       }
