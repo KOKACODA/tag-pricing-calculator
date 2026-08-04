@@ -806,6 +806,17 @@
       background: #b91c1c;
     }
 
+    .btn.danger-outline {
+      background: #fff;
+      color: var(--danger);
+      border: 1px solid var(--danger);
+    }
+
+    .btn.danger-outline:hover {
+      background: var(--danger);
+      color: #fff;
+    }
+
     .btn.sm {
       padding: 6px 12px;
       font-size: 13px;
@@ -3968,8 +3979,13 @@
         </div>
 
         <div class="tab-panel active" id="panel-snapshot">
-          <h3 style="font-size:14px;color:var(--brand-dark);margin:6px 0 10px;">价格配置导入 / 导出</h3>
-          <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;">当前支持本地 JSON 与 Excel 导入导出；Excel 每个 Sheet 对应一张报价表。后续可对接后端数据库或 Cloudflare KV 实现多设备同步。</p>
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+            <div>
+              <h3 style="font-size:14px;color:var(--brand-dark);margin:0;">价格配置导入 / 导出</h3>
+              <p style="font-size:12px;color:var(--text-secondary);margin:4px 0 0;">当前支持本地 JSON 与 Excel 导入导出；Excel 每个 Sheet 对应一张报价表。后续可对接后端数据库或 Cloudflare KV 实现多设备同步。</p>
+            </div>
+            <button class="btn danger-outline sm" id="resetToDefaultsBtn" title="清空纸张/工艺/吊绳/客户等级的所有本地修改，恢复出厂配置（不影响报价历史与本地快照）">重置为默认配置</button>
+          </div>
 
           <div style="margin-bottom:18px;">
             <h4 style="font-size:13px;color:var(--brand-dark);margin-bottom:8px;">Excel 报价表</h4>
@@ -5900,6 +5916,7 @@
       tabPanels: document.querySelectorAll(".tab-panel"),
       exportDataBtn: document.getElementById("exportDataBtn"),
       importDataBtn: document.getElementById("importDataBtn"),
+      resetToDefaultsBtn: document.getElementById("resetToDefaultsBtn"),
       exportLocalBackupBtn: document.getElementById("exportLocalBackupBtn"),
       importLocalBackupBtn: document.getElementById("importLocalBackupBtn"),
       importLocalBackupFile: document.getElementById("importLocalBackupFile"),
@@ -6425,6 +6442,41 @@
       renderLevelSettings();
       onCalculate();
       showToast("已恢复默认等级");
+    }
+
+    /**
+     * 一键恢复所有配置为出厂默认（纸张 / 工艺 / 吊绳 / 客户等级）。
+     * 仅清 4 个 key 的 localStorage；保留报价历史、本地快照、APP_PROFILE、个人偏好等。
+     * 用途：换设备或被旧 localStorage 污染后，一键回到 DEFAULT 状态。
+     */
+    function resetToDefaults() {
+      const confirmMsg = "将清空以下本地修改并恢复出厂默认：\n\n• 纸张配置（9 张报价表）\n• 工艺配置（含 烫金/UV/鸡眼/凹凸 等）\n• 吊绳配置\n• 客户等级\n\n报价历史与本地快照不会被删除。\n\n确定继续？";
+      if (!confirm(confirmMsg)) return;
+
+      const keysToReset = ["paperConfig", "craftConfig", "ropeConfig", "customerLevels"];
+      keysToReset.forEach(k => {
+        try { localStorage.removeItem("tagPricing_" + k); } catch (e) { /* 忽略 */ }
+      });
+
+      // 重新从 DEFAULT 派生（深拷贝，避免后续修改污染源对象）
+      PAPER_CONFIG = DEFAULT_PAPER_CONFIG.map(p => ({
+        ...p,
+        specs: p.specs.map(s => ({ ...s, prices: { ...s.prices } }))
+      }));
+      CRAFT_CONFIG = {};
+      Object.keys(DEFAULT_CRAFT_CONFIG).forEach(k => {
+        CRAFT_CONFIG[k] = DEFAULT_CRAFT_CONFIG[k].map(c => ({ ...c, prices: { ...c.prices } }));
+      });
+      ROPE_CONFIG = DEFAULT_ROPE_CONFIG.map(r => ({ ...r, prices: { ...r.prices } }));
+      CUSTOMER_LEVELS = DEFAULT_CUSTOMER_LEVELS.map(l => ({ ...l }));
+
+      rebuildPaperUI();
+      renderLevelSettings();
+      // 重新填充下拉框默认值
+      updateDefaultPaperOptions && updateDefaultPaperOptions();
+      updateDefaultRopeOptions && updateDefaultRopeOptions();
+      onCalculate();
+      showToast("已恢复默认配置（含工艺 单面/双面 后缀）");
     }
 
     function loadProfileToUI() {
@@ -7620,6 +7672,7 @@
       if (els.exportDataBtn) els.exportDataBtn.addEventListener("click", exportFullData);
       if (els.importDataBtn) els.importDataBtn.addEventListener("click", () => els.importFile.click());
       if (els.importFile) els.importFile.addEventListener("change", e => importFullData(e.target.files[0]));
+      if (els.resetToDefaultsBtn) els.resetToDefaultsBtn.addEventListener("click", resetToDefaults);
       if (els.exportLocalBackupBtn) els.exportLocalBackupBtn.addEventListener("click", exportLocalBackup);
       if (els.importLocalBackupBtn) els.importLocalBackupBtn.addEventListener("click", () => els.importLocalBackupFile.click());
       if (els.importLocalBackupFile) els.importLocalBackupFile.addEventListener("change", e => importLocalBackup(e.target.files[0]));
