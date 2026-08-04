@@ -3,7 +3,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>海洋吊牌报价系统 v3.4</title>
-  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+  <script>
+    // 加载失败的全局错误兜底，避免单个脚本失败阻塞整个页面
+    window.addEventListener('error', function(e) {
+      if (e.filename && e.filename.indexOf('sheetjs') !== -1) {
+        console.warn('SheetJS CDN 加载失败，Excel 导入/导出功能将不可用，但报价计算仍可用');
+      }
+    }, true);
+  </script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"
+          onerror="console.warn('SheetJS 加载失败')"></script>
   <style>
     /* ===================== 全局变量与重置 ===================== */
     :root {
@@ -7714,31 +7723,44 @@
     }
 
     // -------------------- 启动 --------------------
-    initOptions();
-    updateDefaultTierOptions();
-    renderSheets();
-    bindEvents();
-    clearResult();
-    loadProfileToUI();
-    renderLevelSettings();
-    renderSnapshots();
-    renderHistory();
+    // 兜底：任何 init 步骤失败不影响其他步骤，错误会显示在控制台
+    (function safeInit() {
+      const steps = [
+        ["initOptions", initOptions],
+        ["updateDefaultTierOptions", updateDefaultTierOptions],
+        ["renderSheets", renderSheets],
+        ["bindEvents", bindEvents],
+        ["clearResult", clearResult],
+        ["loadProfileToUI", loadProfileToUI],
+        ["renderLevelSettings", renderLevelSettings],
+        ["renderSnapshots", renderSnapshots],
+        ["renderHistory", renderHistory]
+      ];
+      steps.forEach(([name, fn]) => {
+        try { if (typeof fn === "function") fn(); }
+        catch (e) { console.error(`[init] ${name} 失败:`, e); }
+      });
 
-    // 应用个人主页的默认档位设置
-    if (APP_PROFILE.defaultTier && els.tier) {
-      const tierExists = Array.from(els.tier.options).some(o => o.value === String(APP_PROFILE.defaultTier));
-      if (tierExists) els.tier.value = String(APP_PROFILE.defaultTier);
-    }
+      // 应用个人主页的默认档位设置
+      try {
+        if (APP_PROFILE.defaultTier && els.tier) {
+          const tierExists = Array.from(els.tier.options).some(o => o.value === String(APP_PROFILE.defaultTier));
+          if (tierExists) els.tier.value = String(APP_PROFILE.defaultTier);
+        }
+      } catch (e) { console.error("[init] 默认档位失败:", e); }
 
-    // 应用个人主页的默认纸张材质设置
-    if (APP_PROFILE.defaultPaperId) {
-      const idx = PAPER_CONFIG.findIndex(p => p.id === APP_PROFILE.defaultPaperId);
-      if (idx >= 0) {
-        currentPaperIndex = idx;
-        if (typeof updatePaperUI === "function") updatePaperUI();
-        else if (typeof renderPaper === "function") renderPaper();
-      }
-    }
+      // 应用个人主页的默认纸张材质设置
+      try {
+        if (APP_PROFILE.defaultPaperId) {
+          const idx = PAPER_CONFIG.findIndex(p => p.id === APP_PROFILE.defaultPaperId);
+          if (idx >= 0) {
+            currentPaperIndex = idx;
+            if (typeof updatePaperUI === "function") updatePaperUI();
+            else if (typeof renderPaper === "function") renderPaper();
+          }
+        }
+      } catch (e) { console.error("[init] 默认纸张失败:", e); }
+    })();
   </script>
 
 
