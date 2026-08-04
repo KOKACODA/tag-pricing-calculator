@@ -2,7 +2,7 @@
 <html lang="zh-CN" data-theme="light" data-trae-theme="dark"><head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>海洋吊牌报价系统 v3.6</title>
+  <title>海洋吊牌报价系统 v3.7</title>
   <script>
     // 加载失败的全局错误兜底，避免单个脚本失败阻塞整个页面
     window.addEventListener('error', function(e) {
@@ -2775,6 +2775,15 @@
           <button class="btn danger sm" data-action="remove-level" data-index="2">删除</button>
         </div>
       </div>
+        <div class="setting-row" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
+          <div class="setting-info">
+            <div class="setting-label">报价小数位数</div>
+            <div class="setting-desc">所有金额显示保留几位小数（修改后立即生效）</div>
+          </div>
+          <div class="setting-control">
+            <input type="number" id="decimalPlaces" min="0" max="4" value="2">
+          </div>
+        </div>
         <div class="btn-group">
           <button class="btn secondary sm" id="addLevelBtn">+ 新增等级</button>
           <button class="btn secondary sm" id="resetLevelBtn">恢复默认</button>
@@ -2943,15 +2952,6 @@
             <select id="defaultPaper"><option value="">跟随默认（报价表 3）</option><option value="paper1">350铜版纸</option><option value="paper2">400铜版纸</option><option value="paper3">702铜版纸</option><option value="paper4">606米白卡</option><option value="paper5">500白卡纸</option><option value="paper6">海成专用</option><option value="paper7">700布纹纸</option><option value="paper8">600牛皮纸</option><option value="paper9">40C棉麻布</option></select>
           </div>
         </div>
-        <div class="setting-row">
-          <div class="setting-info">
-            <div class="setting-label">报价小数位数</div>
-            <div class="setting-desc">显示金额保留几位小数</div>
-          </div>
-          <div class="setting-control">
-            <input type="number" id="decimalPlaces" min="0" max="4" value="2">
-          </div>
-        </div>
         <div class="btn-group">
           <button class="btn sm" id="saveProfileBtn">保存设置</button>
           <button class="btn secondary sm" id="exportProfileBtn">导出配置</button>
@@ -2999,7 +2999,7 @@
         <div class="setting-row">
           <div class="setting-info">
             <div class="setting-label">当前版本</div>
-            <div class="setting-desc">海洋吊牌报价系统 v3.6</div>
+            <div class="setting-desc">海洋吊牌报价系统 v3.7</div>
           </div>
           <div class="setting-control">
             <span class="placeholder-badge">正式版</span>
@@ -5558,7 +5558,7 @@
 
     function exportLocalBackup() {
       const data = {
-        version: "3.6",
+        version: "3.7",
         kind: "local-backup",
         exportAt: new Date().toISOString(),
         customerLevels: CUSTOMER_LEVELS,
@@ -5634,7 +5634,7 @@
     // -------------------- 导入 / 导出完整配置 --------------------
     function exportFullData() {
       const data = {
-        version: "3.6",
+        version: "3.7",
         exportAt: new Date().toISOString(),
         customerLevels: CUSTOMER_LEVELS,
         appProfile: APP_PROFILE,
@@ -6508,6 +6508,22 @@
       if (els.resetLevelBtn) els.resetLevelBtn.addEventListener("click", resetCustomerLevels);
       if (els.saveProfileBtn) els.saveProfileBtn.addEventListener("click", saveProfile);
       if (els.exportProfileBtn) els.exportProfileBtn.addEventListener("click", exportProfile);
+
+      // 报价小数位数：实时保存并立即重算
+      if (els.decimalPlaces) {
+        els.decimalPlaces.addEventListener("input", () => {
+          APP_PROFILE.decimalPlaces = Math.max(0, Math.min(4, parseInt(els.decimalPlaces.value, 10) || 2));
+          saveToStorage("appProfile", APP_PROFILE);
+          onCalculate();
+        });
+        els.decimalPlaces.addEventListener("change", () => {
+          APP_PROFILE.decimalPlaces = Math.max(0, Math.min(4, parseInt(els.decimalPlaces.value, 10) || 2));
+          els.decimalPlaces.value = APP_PROFILE.decimalPlaces;
+          saveToStorage("appProfile", APP_PROFILE);
+          onCalculate();
+          showToast("小数位数已更新为 " + APP_PROFILE.decimalPlaces + " 位");
+        });
+      }
 
       // 数据管理标签页
       if (els.tabs) els.tabs.forEach(tab => {
