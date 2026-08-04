@@ -5974,14 +5974,7 @@
     let sheetsState = [];
 
     // -------------------- 初始化下拉选项 --------------------
-    function initOptions() {
-      // 批量档位：基于第一张纸的规格价格 keys（取并集）
-      updateTierOptions(true);
-
-      // 吊绳（三列单选）
-      els.rope.innerHTML = renderRopeRadios();
-
-    // 根据 APP_PROFILE.defaultRope 生成吊绳单选项 HTML
+    // 根据 APP_PROFILE.defaultRope 生成吊绳单选项 HTML（顶层作用域，供 initOptions 和 rebuildRopeUI 共用）
     function renderRopeRadios() {
       const fallback = "rope1"; // 默认「普通吊绳」
       const desired = APP_PROFILE.defaultRope || fallback;
@@ -5994,6 +5987,13 @@
         </label>
       `).join("");
     }
+
+    function initOptions() {
+      // 批量档位：基于第一张纸的规格价格 keys（取并集）
+      updateTierOptions(true);
+
+      // 吊绳（三列单选）
+      els.rope.innerHTML = renderRopeRadios();
 
       // 地区
       els.region.innerHTML = '<option value="">请选择地区</option>' +
@@ -7468,10 +7468,13 @@
     function rebuildPaperUI() {
       // 重建纸张选择 UI、纸张设置列表、报价表查询页
       currentPaperIndex = Math.min(currentPaperIndex, Math.max(0, PAPER_CONFIG.length - 1));
-      // 重置纸张设置，默认使用第一张纸
+      // 重置纸张设置，保留尺寸数据，默认使用第一张纸
       sheetsState = sheetsState.map(s => ({
         paperId: PAPER_CONFIG.find(p => p.id === s.paperId) ? s.paperId : PAPER_CONFIG[0].id,
-        craftIds: []
+        craftIds: [],
+        width: s.width || "",
+        length: s.length || "",
+        sizeType: s.sizeType || "custom"
       }));
       updateTierOptions(false);
       renderSheets();
@@ -7665,26 +7668,31 @@
       });
 
       [els.tier, els.region].forEach(el => {
+        if (!el) return;
         el.addEventListener("input", onCalculate);
         el.addEventListener("change", onCalculate);
       });
-      els.rope.querySelectorAll('input[name="rope"]').forEach(radio => {
-        radio.addEventListener("change", onCalculate);
-      });
+      if (els.rope) {
+        els.rope.querySelectorAll('input[name="rope"]').forEach(radio => {
+          radio.addEventListener("change", onCalculate);
+        });
+      }
 
       // 纸张数量变化时重渲染纸张卡片再计算
-      els.sheetCount.addEventListener("input", () => {
-        renderSheets();
-        onCalculate();
-      });
-      els.sheetCount.addEventListener("change", () => {
-        renderSheets();
-        onCalculate();
-      });
+      if (els.sheetCount) {
+        els.sheetCount.addEventListener("input", () => {
+          renderSheets();
+          onCalculate();
+        });
+        els.sheetCount.addEventListener("change", () => {
+          renderSheets();
+          onCalculate();
+        });
+      }
 
-      els.searchInput.addEventListener("input", renderPriceTable);
-      els.prevPaper.addEventListener("click", prevPaper);
-      els.nextPaper.addEventListener("click", nextPaper);
+      if (els.searchInput) els.searchInput.addEventListener("input", renderPriceTable);
+      if (els.prevPaper) els.prevPaper.addEventListener("click", prevPaper);
+      if (els.nextPaper) els.nextPaper.addEventListener("click", nextPaper);
 
       // 个人主页事件
       if (els.addLevelBtn) els.addLevelBtn.addEventListener("click", addCustomerLevel);
@@ -7693,7 +7701,7 @@
       if (els.exportProfileBtn) els.exportProfileBtn.addEventListener("click", exportProfile);
 
       // 数据管理标签页
-      els.tabs.forEach(tab => {
+      if (els.tabs) els.tabs.forEach(tab => {
         tab.addEventListener("click", () => switchTab(tab.dataset.tab));
       });
 
@@ -7755,11 +7763,14 @@
           const idx = PAPER_CONFIG.findIndex(p => p.id === APP_PROFILE.defaultPaperId);
           if (idx >= 0) {
             currentPaperIndex = idx;
-            if (typeof updatePaperUI === "function") updatePaperUI();
-            else if (typeof renderPaper === "function") renderPaper();
+            renderPriceTable();
           }
         }
       } catch (e) { console.error("[init] 默认纸张失败:", e); }
+
+      // 初始化完成后触发一次计算，确保页面有结果显示
+      try { onCalculate(); }
+      catch (e) { console.error("[init] onCalculate 失败:", e); }
     })();
   </script>
 
