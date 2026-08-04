@@ -4797,9 +4797,14 @@
       // 吊绳（三列单选）
       els.rope.innerHTML = renderRopeRadios();
 
-      // 地区
-      els.region.innerHTML = '<option value="">请选择地区</option>' +
-        SHIPPING_CONFIG.map(s => `<option value="${s.id}">${s.name}</option>`).join("");
+      // 地区：默认选中第一项（广东省内），确保页面加载后即可计算
+      if (els.region) {
+        els.region.innerHTML = '<option value="">请选择地区</option>' +
+          SHIPPING_CONFIG.map(s => `<option value="${s.id}">${s.name}</option>`).join("");
+        if (SHIPPING_CONFIG.length > 0) {
+          els.region.value = SHIPPING_CONFIG[0].id;
+        }
+      }
     }
 
     /**
