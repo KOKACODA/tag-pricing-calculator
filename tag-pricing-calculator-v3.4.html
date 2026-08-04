@@ -5639,11 +5639,22 @@
       { id: "level3", name: "大客户", coefficient: 1.05 }
     ];
 
-    // 运行时配置：优先从 localStorage 读取，后续可迁移到数据库
-    let PAPER_CONFIG = loadFromStorage("paperConfig", DEFAULT_PAPER_CONFIG);
-    let ROPE_CONFIG = loadFromStorage("ropeConfig", DEFAULT_ROPE_CONFIG);
-    let CRAFT_CONFIG = loadFromStorage("craftConfig", DEFAULT_CRAFT_CONFIG);
-    let CUSTOMER_LEVELS = loadFromStorage("customerLevels", DEFAULT_CUSTOMER_LEVELS);
+    // 测试阶段：启动时清空旧缓存的报价配置，始终使用内置 DEFAULT（云端）
+    EPHEMERAL_KEYS.forEach(k => {
+      try { localStorage.removeItem("tagPricing_" + k); } catch (e) {}
+    });
+
+    // 运行时配置：测试阶段始终使用 DEFAULT，localStorage 中的报价配置被忽略
+    let PAPER_CONFIG = DEFAULT_PAPER_CONFIG.map(p => ({
+      ...p,
+      specs: p.specs.map(s => ({ ...s, prices: { ...s.prices } }))
+    }));
+    let ROPE_CONFIG = DEFAULT_ROPE_CONFIG.map(r => ({ ...r, prices: { ...r.prices } }));
+    let CRAFT_CONFIG = {};
+    Object.keys(DEFAULT_CRAFT_CONFIG).forEach(k => {
+      CRAFT_CONFIG[k] = DEFAULT_CRAFT_CONFIG[k].map(c => ({ ...c, prices: { ...c.prices } }));
+    });
+    let CUSTOMER_LEVELS = DEFAULT_CUSTOMER_LEVELS.map(l => ({ ...l }));
     let APP_PROFILE = loadFromStorage("appProfile", {
       companyName: "海洋吊牌厂",
       companyPhone: "",
@@ -6358,7 +6369,15 @@
     // ===================== 本地存储与扩展功能 =====================
     // ============================================================
 
+    /**
+     * 测试阶段策略：纸张/工艺/吊绳/客户等级的配置始终使用内置 DEFAULT（云端），
+     * 不读写 localStorage。导入的本地数据仅在当前会话有效，刷新后自动丢弃。
+     * 报价历史、本地快照、APP_PROFILE 等仍正常持久化。
+     */
+    const EPHEMERAL_KEYS = ["paperConfig", "craftConfig", "ropeConfig", "customerLevels"];
+
     function saveToStorage(key, value) {
+      if (EPHEMERAL_KEYS.includes(key)) return; // 测试阶段：报价配置不持久化
       try {
         localStorage.setItem("tagPricing_" + key, JSON.stringify(value));
       } catch (e) {
@@ -6367,6 +6386,7 @@
     }
 
     function loadFromStorage(key, defaultValue) {
+      if (EPHEMERAL_KEYS.includes(key)) return defaultValue; // 测试阶段：报价配置始终用 DEFAULT
       try {
         const raw = localStorage.getItem("tagPricing_" + key);
         return raw ? JSON.parse(raw) : defaultValue;
