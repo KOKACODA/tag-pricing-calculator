@@ -2,7 +2,7 @@
 <html lang="zh-CN" data-theme="light" data-trae-theme="dark"><head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>海洋吊牌报价系统 v3.7</title>
+  <title>海洋吊牌报价系统 v3.8</title>
   <script>
     // 加载失败的全局错误兜底，避免单个脚本失败阻塞整个页面
     window.addEventListener('error', function(e) {
@@ -2829,6 +2829,17 @@
             <div id="ropeExcelImportStatus" style="margin-top:10px;font-size:13px;color:var(--text-secondary);"></div>
           </div>
 
+          <div style="margin-bottom:18px;">
+            <h4 style="font-size:13px;color:var(--brand-dark);margin-bottom:8px;">邮费报价</h4>
+            <div class="btn-group">
+              <button class="btn" id="exportShippingExcelBtn">导出邮费 Excel</button>
+              <button class="btn secondary" id="importShippingExcelBtn">导入邮费 Excel</button>
+              <button class="btn secondary" id="downloadShippingTemplateBtn">下载邮费模板</button>
+              <input type="file" id="importShippingExcelFile" accept=".xlsx,.xls" style="display:none">
+            </div>
+            <div id="shippingExcelImportStatus" style="margin-top:10px;font-size:13px;color:var(--text-secondary);"></div>
+          </div>
+
           <div class="btn-group">
             <button class="btn" id="exportDataBtn">导出完整配置 JSON</button>
             <button class="btn secondary" id="importDataBtn">导入配置 JSON</button>
@@ -2999,7 +3010,7 @@
         <div class="setting-row">
           <div class="setting-info">
             <div class="setting-label">当前版本</div>
-            <div class="setting-desc">海洋吊牌报价系统 v3.7</div>
+            <div class="setting-desc">海洋吊牌报价系统 v3.8</div>
           </div>
           <div class="setting-control">
             <span class="placeholder-badge">正式版</span>
@@ -4440,6 +4451,7 @@
       { id: "region2", name: "江浙沪", basePrices: { 500: 15, 1000: 20, 2000: 28, 3000: 36, 5000: 50 }, smallAreaThreshold: 2500, discount: 0.8 },
       { id: "region3", name: "其他省份", basePrices: { 500: 18, 1000: 25, 2000: 35, 3000: 45, 5000: 65 }, smallAreaThreshold: 2500, discount: 0.8 }
     ];
+    const DEFAULT_SHIPPING_CONFIG = SHIPPING_CONFIG.map(s => ({ ...s, basePrices: { ...s.basePrices } }));
 
     /**
      * 客户等级与毛利系数配置。
@@ -4495,7 +4507,7 @@
      */
     function formatMoney(value) {
       if (typeof value !== "number" || isNaN(value)) return "-";
-      const decimals = Math.max(0, Math.min(4, parseInt(APP_PROFILE.decimalPlaces, 10) || 2));
+      const decimals = Math.max(0, Math.min(4, parseInt(APP_PROFILE.decimalPlaces, 10) ?? 2));
       return value.toFixed(decimals);
     }
 
@@ -4762,6 +4774,11 @@
       importRopeExcelFile: document.getElementById("importRopeExcelFile"),
       downloadRopeTemplateBtn: document.getElementById("downloadRopeTemplateBtn"),
       ropeExcelImportStatus: document.getElementById("ropeExcelImportStatus"),
+      exportShippingExcelBtn: document.getElementById("exportShippingExcelBtn"),
+      importShippingExcelBtn: document.getElementById("importShippingExcelBtn"),
+      importShippingExcelFile: document.getElementById("importShippingExcelFile"),
+      downloadShippingTemplateBtn: document.getElementById("downloadShippingTemplateBtn"),
+      shippingExcelImportStatus: document.getElementById("shippingExcelImportStatus"),
       snapshotTable: document.getElementById("snapshotTable"),
       snapshotEmpty: document.getElementById("snapshotEmpty"),
       createSnapshotBtn: document.getElementById("createSnapshotBtn"),
@@ -5319,7 +5336,7 @@
     function loadProfileToUI() {
       if (els.companyName) els.companyName.value = APP_PROFILE.companyName || "";
       if (els.companyPhone) els.companyPhone.value = APP_PROFILE.companyPhone || "";
-      if (els.decimalPlaces) els.decimalPlaces.value = APP_PROFILE.decimalPlaces || 2;
+      if (els.decimalPlaces) els.decimalPlaces.value = APP_PROFILE.decimalPlaces ?? 2;
       updateDefaultTierOptions();
       if (els.defaultTier) els.defaultTier.value = APP_PROFILE.defaultTier || "";
       updateDefaultRopeOptions();
@@ -5361,7 +5378,7 @@
         defaultTier: els.defaultTier ? els.defaultTier.value : APP_PROFILE.defaultTier,
         defaultRope: els.defaultRope ? (els.defaultRope.value || "rope1") : APP_PROFILE.defaultRope,
         defaultPaperId: els.defaultPaper ? (els.defaultPaper.value || "") : APP_PROFILE.defaultPaperId,
-        decimalPlaces: els.decimalPlaces ? (parseInt(els.decimalPlaces.value, 10) || 2) : APP_PROFILE.decimalPlaces
+        decimalPlaces: els.decimalPlaces ? (parseInt(els.decimalPlaces.value, 10) ?? 2) : (APP_PROFILE.decimalPlaces ?? 2)
       };
       saveToStorage("appProfile", APP_PROFILE);
       saveToStorage("customerLevels", CUSTOMER_LEVELS);
@@ -5558,7 +5575,7 @@
 
     function exportLocalBackup() {
       const data = {
-        version: "3.7",
+        version: "3.8",
         kind: "local-backup",
         exportAt: new Date().toISOString(),
         customerLevels: CUSTOMER_LEVELS,
@@ -5634,7 +5651,7 @@
     // -------------------- 导入 / 导出完整配置 --------------------
     function exportFullData() {
       const data = {
-        version: "3.7",
+        version: "3.8",
         exportAt: new Date().toISOString(),
         customerLevels: CUSTOMER_LEVELS,
         appProfile: APP_PROFILE,
@@ -6452,6 +6469,163 @@
       els.rope.innerHTML = renderRopeRadios();
     }
 
+    // -------------------- 邮费 Excel 导入 / 导出 / 模板 --------------------
+
+    function setShippingExcelStatus(html, isError) {
+      if (!els.shippingExcelImportStatus) return;
+      els.shippingExcelImportStatus.innerHTML = html;
+      els.shippingExcelImportStatus.style.color = isError ? "var(--danger)" : "var(--text-secondary)";
+    }
+
+    function shippingToSheetRows() {
+      const tierKeys = SHIPPING_CONFIG.length ? Object.keys(SHIPPING_CONFIG[0].basePrices) : [];
+      const headerRow = ["地区名称", ...tierKeys.map(String), "小面积折扣阈值", "折扣系数"];
+      const dataRows = SHIPPING_CONFIG.map(region => [
+        region.name,
+        ...tierKeys.map(t => region.basePrices[t] ?? ""),
+        region.smallAreaThreshold,
+        region.discount
+      ]);
+      return [headerRow, ...dataRows];
+    }
+
+    function exportShippingExcel() {
+      if (typeof XLSX === "undefined") {
+        showToast("Excel 库未加载，请检查网络");
+        return;
+      }
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet(shippingToSheetRows());
+      XLSX.utils.book_append_sheet(wb, ws, "邮费报价");
+      XLSX.writeFile(wb, "海洋吊牌邮费报价_" + formatDateFile() + ".xlsx");
+      showToast("邮费报价 Excel 已导出");
+    }
+
+    function downloadShippingTemplate() {
+      if (typeof XLSX === "undefined") {
+        showToast("Excel 库未加载，请检查网络");
+        return;
+      }
+      const sample = DEFAULT_SHIPPING_CONFIG[0];
+      const tierKeys = sample ? Object.keys(sample.basePrices) : ["500", "1000", "2000", "3000", "5000"];
+      const rows = [
+        ["地区名称", ...tierKeys.map(String), "小面积折扣阈值", "折扣系数"],
+        ["广东省内", ...tierKeys.map(t => sample ? sample.basePrices[t] : 0), 2500, 0.8],
+        ["江浙沪", ...tierKeys.map(() => 0), 2500, 0.8],
+        ["其他省份", ...tierKeys.map(() => 0), 2500, 0.8]
+      ];
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "邮费报价模板");
+      XLSX.writeFile(wb, "海洋吊牌邮费报价模板_" + formatDateFile() + ".xlsx");
+      showToast("邮费模板已下载");
+    }
+
+    function parseShippingExcel(arrayBuffer) {
+      if (typeof XLSX === "undefined") {
+        throw new Error("Excel 库未加载，请检查网络");
+      }
+      const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      if (!ws) throw new Error("Excel 没有工作表");
+
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+      if (!rows.length) throw new Error("工作表为空");
+
+      const headerRow = rows[0];
+      // 解析档位列（第2列起到倒数第2列），最后两列是阈值和折扣
+      const tierKeys = [];
+      for (let c = 1; c < headerRow.length - 2; c++) {
+        const val = headerRow[c];
+        if (val !== "" && !isNaN(Number(val)) && Number(val) > 0) {
+          tierKeys.push(String(Number(val)));
+        }
+      }
+      if (!tierKeys.length) throw new Error("未找到档位列，表头第 2 列起应为数字档位");
+
+      const regions = [];
+      const errors = [];
+
+      for (let r = 1; r < rows.length; r++) {
+        const row = rows[r];
+        if (!row || !row.length) continue;
+        const name = String(row[0] || "").trim();
+        if (!name) continue;
+
+        const basePrices = {};
+        for (let i = 0; i < tierKeys.length; i++) {
+          const tier = tierKeys[i];
+          const val = row[1 + i];
+          const price = val === "" || val == null ? 0 : Number(val);
+          if (isNaN(price)) {
+            errors.push(`「${name}」的 ${tier} 档价格无效，已按 0 处理`);
+            basePrices[tier] = 0;
+          } else {
+            basePrices[tier] = price;
+          }
+        }
+
+        // 解析最后两列：小面积折扣阈值、折扣系数
+        const thresholdIdx = 1 + tierKeys.length;
+        const discountIdx = thresholdIdx + 1;
+        const threshold = row[thresholdIdx] !== "" && row[thresholdIdx] != null
+          ? Number(row[thresholdIdx]) : 2500;
+        const discount = row[discountIdx] !== "" && row[discountIdx] != null
+          ? Number(row[discountIdx]) : 0.8;
+        if (isNaN(threshold)) errors.push(`「${name}」的折扣阈值无效，已按 2500 处理`);
+        if (isNaN(discount)) errors.push(`「${name}」的折扣系数无效，已按 0.8 处理`);
+
+        regions.push({
+          id: "region" + (regions.length + 1),
+          name,
+          basePrices,
+          smallAreaThreshold: isNaN(threshold) ? 2500 : threshold,
+          discount: isNaN(discount) ? 0.8 : discount
+        });
+      }
+
+      if (!regions.length) throw new Error("没有可导入的邮费配置");
+      return { regions, errors };
+    }
+
+    function importShippingExcel(file) {
+      if (!file) return;
+      if (typeof XLSX === "undefined") {
+        setShippingExcelStatus("Excel 库未加载，请检查网络", true);
+        showToast("Excel 库未加载");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = e => {
+        try {
+          const { regions, errors } = parseShippingExcel(e.target.result);
+          // 直接替换 SHIPPING_CONFIG 的内容（保持引用不变）
+          SHIPPING_CONFIG.length = 0;
+          regions.forEach(r => SHIPPING_CONFIG.push(r));
+          // 重新渲染地区下拉
+          if (els.region) {
+            els.region.innerHTML = '<option value="">请选择地区</option>' +
+              SHIPPING_CONFIG.map(s => `<option value="${s.id}">${s.name}</option>`).join("");
+            if (SHIPPING_CONFIG.length > 0) els.region.value = SHIPPING_CONFIG[0].id;
+          }
+          onCalculate();
+          const successMsg = `成功导入 ${regions.length} 个地区的邮费：${regions.map(r => r.name).join("、")}`;
+          const errMsg = errors.length ? `<br><span style="color:var(--danger)">警告：${errors.join("；")}</span>` : "";
+          setShippingExcelStatus(successMsg + errMsg, false);
+          showToast("邮费 Excel 导入成功");
+        } catch (err) {
+          setShippingExcelStatus("导入失败：" + err.message, true);
+          showToast("邮费 Excel 导入失败");
+        }
+        if (els.importShippingExcelFile) els.importShippingExcelFile.value = "";
+      };
+      reader.onerror = () => {
+        setShippingExcelStatus("文件读取失败", true);
+        if (els.importShippingExcelFile) els.importShippingExcelFile.value = "";
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
     // -------------------- 页面切换增强 --------------------
     function switchPage(pageName) {
       els.navBtns.forEach(btn => {
@@ -6512,12 +6686,12 @@
       // 报价小数位数：实时保存并立即重算
       if (els.decimalPlaces) {
         els.decimalPlaces.addEventListener("input", () => {
-          APP_PROFILE.decimalPlaces = Math.max(0, Math.min(4, parseInt(els.decimalPlaces.value, 10) || 2));
+          APP_PROFILE.decimalPlaces = Math.max(0, Math.min(4, parseInt(els.decimalPlaces.value, 10) ?? 2));
           saveToStorage("appProfile", APP_PROFILE);
           onCalculate();
         });
         els.decimalPlaces.addEventListener("change", () => {
-          APP_PROFILE.decimalPlaces = Math.max(0, Math.min(4, parseInt(els.decimalPlaces.value, 10) || 2));
+          APP_PROFILE.decimalPlaces = Math.max(0, Math.min(4, parseInt(els.decimalPlaces.value, 10) ?? 2));
           els.decimalPlaces.value = APP_PROFILE.decimalPlaces;
           saveToStorage("appProfile", APP_PROFILE);
           onCalculate();
@@ -6546,6 +6720,10 @@
       if (els.importRopeExcelBtn) els.importRopeExcelBtn.addEventListener("click", () => els.importRopeExcelFile.click());
       if (els.importRopeExcelFile) els.importRopeExcelFile.addEventListener("change", e => importRopeExcel(e.target.files[0]));
       if (els.downloadRopeTemplateBtn) els.downloadRopeTemplateBtn.addEventListener("click", downloadRopeTemplate);
+      if (els.exportShippingExcelBtn) els.exportShippingExcelBtn.addEventListener("click", exportShippingExcel);
+      if (els.importShippingExcelBtn) els.importShippingExcelBtn.addEventListener("click", () => els.importShippingExcelFile.click());
+      if (els.importShippingExcelFile) els.importShippingExcelFile.addEventListener("change", e => importShippingExcel(e.target.files[0]));
+      if (els.downloadShippingTemplateBtn) els.downloadShippingTemplateBtn.addEventListener("click", downloadShippingTemplate);
       if (els.createSnapshotBtn) els.createSnapshotBtn.addEventListener("click", createSnapshot);
       if (els.clearSnapshotBtn) els.clearSnapshotBtn.addEventListener("click", clearSnapshots);
       if (els.addHistoryPlaceholderBtn) els.addHistoryPlaceholderBtn.addEventListener("click", addHistoryPlaceholder);
@@ -6553,6 +6731,14 @@
 
       // 点击页面其他区域关闭纸张材质下拉
       document.addEventListener("click", () => closeAllPaperDropdowns());
+
+      // 禁用所有 number 类型输入框的鼠标滚轮调整，防止误操作
+      document.addEventListener("wheel", e => {
+        if (e.target && e.target.type === "number") {
+          e.preventDefault();
+          e.target.blur();
+        }
+      }, { passive: false });
     }
 
     // -------------------- 启动 --------------------
