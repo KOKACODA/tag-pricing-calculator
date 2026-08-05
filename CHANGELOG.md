@@ -5,6 +5,16 @@
 
 ---
 
+## [v4.0.1] - 2026-08-05
+
+### 变更
+- **移除 HTML 内更新日志弹窗**：取消 HTML 中的 CHANGELOG 数组、showChangelog/hideChangelog 函数、弹窗 CSS 和 UI 按钮，更新日志改为仅由 GitHub `CHANGELOG.md` 维护
+- **GitHub 仓库改回 Public**：Private 仓库会导致 Cloudflare Pages 的 GitHub 集成断开，改回 Public 并依赖 `noindex` + `robots.txt` 防搜索引擎收录
+- **新增个人主页测试阶段提示**：关于与版本卡片中增加"测试阶段提示"行，标注当前已屏蔽搜索引擎收录
+- **新增 AGENT-INSTRUCTIONS.md**：项目根目录新增 Agent 指令文件，确保任何 AI Agent 接手时自动更新 CHANGELOG.md、同步 index.html、遵守代码质量规则
+
+---
+
 ## [v4.0] - 2026-08-05
 
 ### 修复
@@ -17,9 +27,7 @@
 
 ### 新增
 - HTML 添加 `noindex`/`nofollow` 元标签，防止搜索引擎收录
-- HTML 添加更新日志弹窗（最近版本一览）
 - 创建 `robots.txt` 禁止爬虫
-- GitHub 仓库设为 Private
 
 ---
 
