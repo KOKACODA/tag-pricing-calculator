@@ -9,6 +9,7 @@
 - **部署入口**：`index.html`（与主文件保持同步）
 - **部署平台**：Cloudflare Pages（通过 GitHub 自动构建）
 - **GitHub 仓库**：`KOKACODA/tag-pricing-calculator`
+- **文档目录**：`docs/`（Agent 指令、交接文档、分析报告）
 
 ## 强制规则
 

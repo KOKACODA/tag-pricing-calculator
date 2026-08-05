@@ -5,6 +5,15 @@
 
 ---
 
+## [v4.1.2] - 2026-08-05
+
+### 变更
+- **仓库文件整理**：将 `AGENT-INSTRUCTIONS.md`、`HANDOFF-v4.1.1.md`、`tag-pricing-v4-analysis/` 归档至 `docs/` 文件夹，根目录仅保留部署必需文件和 `README.md`、`CHANGELOG.md`
+- **重写 README.md**：更新版本号至 v4.1.1，补充 v4.0+ 全部功能描述、项目结构树、技术架构说明、相关文档链接，修正过时的文件引用
+- **更新文档路径引用**：`HANDOFF-v4.1.1.md` 和 `AGENT-INSTRUCTIONS.md` 内的文件路径同步更新为 `docs/` 下的新路径
+
+---
+
 ## [v4.1.1] - 2026-08-05
 
 ### 变更

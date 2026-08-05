@@ -1,6 +1,6 @@
 # 项目转接文档 — 海洋吊牌报价系统 v4.1.1
 
-> **此文件用于新对话窗口接手，请先完整阅读此文档，再阅读 `AGENT-INSTRUCTIONS.md`。**
+> **此文件用于新对话窗口接手，请先完整阅读此文档，再阅读 `docs/AGENT-INSTRUCTIONS.md`。**
 
 ---
 
@@ -28,10 +28,11 @@
 | `tag-pricing-calculator-v4.0.html` | 主程序（单文件应用，含全部 HTML/CSS/JS） |
 | `index.html` | 部署入口（主文件副本，Cloudflare Pages 索引） |
 | `CHANGELOG.md` | 完整更新日志（v3.4 → v4.1.1） |
-| `AGENT-INSTRUCTIONS.md` | Agent 强制规则（必读） |
 | `robots.txt` | 禁止爬虫（测试阶段） |
 | `README.md` | 项目说明 |
-| `tag-pricing-v4-analysis/tag-pricing-v4-analysis.html` | 全流程分析报告（架构/机制/修复/优化方向） |
+| `docs/AGENT-INSTRUCTIONS.md` | Agent 强制规则（必读） |
+| `docs/HANDOFF-v4.1.1.md` | 项目交接文档（本文件） |
+| `docs/tag-pricing-v4-analysis/tag-pricing-v4-analysis.html` | 全流程分析报告（架构/机制/修复/优化方向） |
 
 ---
 
@@ -117,7 +118,7 @@
 
 ## 八、新对话接手步骤
 
-1. **读取 `AGENT-INSTRUCTIONS.md`** — 了解强制规则
+1. **读取 `docs/AGENT-INSTRUCTIONS.md`** — 了解强制规则
 2. **读取 `CHANGELOG.md`** — 了解完整版本历史
 3. **读取主文件 `tag-pricing-calculator-v4.0.html`** — 用 Grep/Read 查看具体代码段
 4. **修改代码后必须执行**：
