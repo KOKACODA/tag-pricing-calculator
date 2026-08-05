@@ -1,10 +1,20 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>海洋吊牌报价系统 v3.3</title>
-  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+<html lang="zh-CN"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <meta name="googlebot" content="noindex, nofollow">
+  <title>海洋吊牌报价系统 v4.0</title>
+  <script>
+    // 加载失败的全局错误兜底，避免单个脚本失败阻塞整个页面
+    window.addEventListener('error', function(e) {
+      if (e.filename && e.filename.indexOf('sheetjs') !== -1) {
+        console.warn('SheetJS CDN 加载失败，Excel 导入/导出功能将不可用，但报价计算仍可用');
+      }
+    }, true);
+  </script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"
+          onerror="console.warn('SheetJS 加载失败')"></script>
   <style>
     /* ===================== 全局变量与重置 ===================== */
     :root {
@@ -475,6 +485,19 @@
       line-height: 1.6;
     }
 
+    .price-missing {
+      /* 低调占位：与正文同色系但弱化，避免抢眼 */
+      display: inline-block;
+      padding: 1px 6px;
+      color: #94a3b8;                  /* 浅灰文字 */
+      background: transparent;          /* 无背景 */
+      font-size: 12px;
+      font-weight: 400;
+      letter-spacing: 0.2px;
+      border: 0;
+      white-space: nowrap;
+    }
+
     .sheet-result-table {
       width: 100%;
       border-collapse: collapse;
@@ -794,6 +817,17 @@
       background: #b91c1c;
     }
 
+    .btn.danger-outline {
+      background: #fff;
+      color: var(--danger);
+      border: 1px solid var(--danger);
+    }
+
+    .btn.danger-outline:hover {
+      background: var(--danger);
+      color: #fff;
+    }
+
     .btn.sm {
       padding: 6px 12px;
       font-size: 13px;
@@ -1000,6 +1034,48 @@
         flex-direction: column;
       }
     }
+
+    /* 更新日志弹窗 */
+    .changelog-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+    .changelog-overlay.show { display: flex; }
+    .changelog-dialog {
+      background: var(--bg2, #fff);
+      border-radius: 14px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+      max-width: 480px;
+      width: 90%;
+      max-height: 70vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .changelog-header {
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--rule, #e2e8f0);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .changelog-header h3 { font-size: 17px; color: var(--accent-dark, #0a4f8a); margin: 0; }
+    .changelog-close {
+      background: none; border: none; font-size: 22px; cursor: pointer;
+      color: var(--muted, #6b7280); padding: 0; line-height: 1;
+    }
+    .changelog-close:hover { color: var(--danger, #dc2626); }
+    .changelog-body { padding: 16px 24px; overflow-y: auto; }
+    .changelog-item { padding: 10px 0; border-bottom: 1px solid var(--rule, #e2e8f0); }
+    .changelog-item:last-child { border-bottom: none; }
+    .changelog-ver { font-weight: 700; color: var(--accent, #0f6fc4); font-size: 14px; }
+    .changelog-date { font-size: 12px; color: var(--muted, #6b7280); margin-left: 8px; }
+    .changelog-desc { font-size: 13px; color: var(--ink, #1f2937); margin-top: 4px; line-height: 1.5; }
   </style>
 </head>
 <body>
@@ -1022,31 +1098,384 @@
         <div class="tier-row">
           <div class="form-group">
             <label for="tier">批量档位</label>
-            <select id="tier">
-              <option value="">请选择批量档位</option>
-            </select>
+            <select id="tier"><option value="">请选择批量档位</option><option value="500">500 张</option><option value="1000">1000 张</option><option value="2000">2000 张</option><option value="2500">2500 张</option><option value="3000">3000 张</option><option value="4000">4000 张</option><option value="5000">5000 张</option><option value="7500">7500 张</option><option value="10000">10000 张</option><option value="20000">20000 张</option><option value="30000">30000 张</option><option value="50000">50000 张</option></select>
           </div>
           <div class="form-group">
             <label for="sheetCount">纸张数量（张）</label>
-            <input type="number" id="sheetCount" min="1" step="1" value="2" />
+            <input type="number" id="sheetCount" min="1" step="1" value="1">
           </div>
         </div>
 
         <div class="form-group">
           <label>纸张设置 <span class="hint">每张纸可设置不同展开尺寸</span></label>
-          <div id="sheetList" class="sheet-list"></div>
+          <div id="sheetList" class="sheet-list"><div class="sheet-card">
+          <div class="sheet-title">纸张 1</div>
+          <div class="form-group">
+            <label>纸张材质 <span class="hint">点击展开，选择后自动收起</span></label>
+            <div class="paper-dropdown" data-sheet="0">
+              <div class="paper-trigger">
+                <div>
+                  <span class="paper-trigger-text">702铜版纸</span>
+                  <span class="paper-trigger-desc">报价表 3：702克 A级铜版纸 双面过哑胶（厚度0.85mm）</span>
+                </div>
+                <span class="paper-trigger-arrow"></span>
+              </div>
+              <div class="paper-options">
+                
+          <div class="paper-option" data-sheet="0" data-paper="paper1">
+            <span class="paper-name">350铜版纸</span>
+            <span class="paper-desc">报价表 1：350克 A级铜版纸 双面过哑胶（厚度0.38mm）</span>
+          </div>
+        
+          <div class="paper-option" data-sheet="0" data-paper="paper2">
+            <span class="paper-name">400铜版纸</span>
+            <span class="paper-desc">报价表 2：400克 A级铜版纸 双面过哑胶（厚度0.45mm）</span>
+          </div>
+        
+          <div class="paper-option active" data-sheet="0" data-paper="paper3">
+            <span class="paper-name">702铜版纸</span>
+            <span class="paper-desc">报价表 3：702克 A级铜版纸 双面过哑胶（厚度0.85mm）</span>
+          </div>
+        
+          <div class="paper-option" data-sheet="0" data-paper="paper4">
+            <span class="paper-name">606米白卡</span>
+            <span class="paper-desc">报价表 4：米白卡 606克（厚度0.8mm）</span>
+          </div>
+        
+          <div class="paper-option" data-sheet="0" data-paper="paper5">
+            <span class="paper-name">500白卡纸</span>
+            <span class="paper-desc">报价表 5：500克 白卡纸（厚度0.55mm）正面过哑胶</span>
+          </div>
+        
+          <div class="paper-option" data-sheet="0" data-paper="paper6">
+            <span class="paper-name">海成专用</span>
+            <span class="paper-desc">报价表 6：400克米白卡 / 160克半透卡 / 200克合成纸（海成专用 / 撕不烂）</span>
+          </div>
+        
+          <div class="paper-option" data-sheet="0" data-paper="paper7">
+            <span class="paper-name">700布纹纸</span>
+            <span class="paper-desc">报价表 7：700克 A级布纹纸 双面过光油（厚度0.85mm）</span>
+          </div>
+        
+          <div class="paper-option" data-sheet="0" data-paper="paper8">
+            <span class="paper-name">600牛皮纸</span>
+            <span class="paper-desc">报价表 8：600克 A级牛皮纸（厚度0.80mm）</span>
+          </div>
+        
+          <div class="paper-option" data-sheet="0" data-paper="paper9">
+            <span class="paper-name">40C棉麻布</span>
+            <span class="paper-desc">报价表 9：棉麻布 40C 米白色</span>
+          </div>
+        
+              </div>
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label>吊牌展开尺寸 <span class="hint">自动加 3mm 出血</span></label>
+            <div class="sheet-size-row">
+              <div class="form-group">
+                <label class="unit">宽 (mm)</label>
+                <input type="number" class="sheet-width" data-sheet="0" min="1" step="1" placeholder="55" value="">
+              </div>
+              <div class="form-group">
+                <label class="unit">长 (mm)</label>
+                <input type="number" class="sheet-length" data-sheet="0" min="1" step="1" placeholder="30" value="">
+              </div>
+              <div class="form-group size-type-group">
+                <label class="unit">类型</label>
+                <select class="sheet-size-type" data-sheet="0">
+                  <option value="single" selected="">单张尺寸</option>
+                  <option value="spread">展开尺寸</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom: 0; margin-top: 12px;">
+            <label>附加工艺</label>
+            <div class="craft-list">
+              <label class="craft-item">
+                <input type="checkbox" value="craft3_1" data-sheet="0" data-craft="craft3_1">
+                <span>无色压凹（单面）</span>
+              </label>
+            
+              <label class="craft-item">
+                <input type="checkbox" value="craft3_2" data-sheet="0" data-craft="craft3_2">
+                <span>套字压凹（单面）</span>
+              </label>
+            
+              <label class="craft-item">
+                <input type="checkbox" value="craft3_3" data-sheet="0" data-craft="craft3_3">
+                <span>烫金 小面积（单面）</span>
+              </label>
+            
+              <label class="craft-item">
+                <input type="checkbox" value="craft3_4" data-sheet="0" data-craft="craft3_4">
+                <span>烫金 小面积（双面）</span>
+              </label>
+            
+              <label class="craft-item">
+                <input type="checkbox" value="craft3_5" data-sheet="0" data-craft="craft3_5">
+                <span>击凸（单面）</span>
+              </label>
+            </div>
+          </div>
+        </div><div class="sheet-card">
+          <div class="sheet-title">纸张 2</div>
+          <div class="form-group">
+            <label>纸张材质 <span class="hint">点击展开，选择后自动收起</span></label>
+            <div class="paper-dropdown" data-sheet="1">
+              <div class="paper-trigger">
+                <div>
+                  <span class="paper-trigger-text">702铜版纸</span>
+                  <span class="paper-trigger-desc">报价表 3：702克 A级铜版纸 双面过哑胶（厚度0.85mm）</span>
+                </div>
+                <span class="paper-trigger-arrow"></span>
+              </div>
+              <div class="paper-options">
+                
+          <div class="paper-option" data-sheet="1" data-paper="paper1">
+            <span class="paper-name">350铜版纸</span>
+            <span class="paper-desc">报价表 1：350克 A级铜版纸 双面过哑胶（厚度0.38mm）</span>
+          </div>
+        
+          <div class="paper-option" data-sheet="1" data-paper="paper2">
+            <span class="paper-name">400铜版纸</span>
+            <span class="paper-desc">报价表 2：400克 A级铜版纸 双面过哑胶（厚度0.45mm）</span>
+          </div>
+        
+          <div class="paper-option active" data-sheet="1" data-paper="paper3">
+            <span class="paper-name">702铜版纸</span>
+            <span class="paper-desc">报价表 3：702克 A级铜版纸 双面过哑胶（厚度0.85mm）</span>
+          </div>
+        
+          <div class="paper-option" data-sheet="1" data-paper="paper4">
+            <span class="paper-name">606米白卡</span>
+            <span class="paper-desc">报价表 4：米白卡 606克（厚度0.8mm）</span>
+          </div>
+        
+          <div class="paper-option" data-sheet="1" data-paper="paper5">
+            <span class="paper-name">500白卡纸</span>
+            <span class="paper-desc">报价表 5：500克 白卡纸（厚度0.55mm）正面过哑胶</span>
+          </div>
+        
+          <div class="paper-option" data-sheet="1" data-paper="paper6">
+            <span class="paper-name">海成专用</span>
+            <span class="paper-desc">报价表 6：400克米白卡 / 160克半透卡 / 200克合成纸（海成专用 / 撕不烂）</span>
+          </div>
+        
+          <div class="paper-option" data-sheet="1" data-paper="paper7">
+            <span class="paper-name">700布纹纸</span>
+            <span class="paper-desc">报价表 7：700克 A级布纹纸 双面过光油（厚度0.85mm）</span>
+          </div>
+        
+          <div class="paper-option" data-sheet="1" data-paper="paper8">
+            <span class="paper-name">600牛皮纸</span>
+            <span class="paper-desc">报价表 8：600克 A级牛皮纸（厚度0.80mm）</span>
+          </div>
+        
+          <div class="paper-option" data-sheet="1" data-paper="paper9">
+            <span class="paper-name">40C棉麻布</span>
+            <span class="paper-desc">报价表 9：棉麻布 40C 米白色</span>
+          </div>
+        
+              </div>
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label>吊牌展开尺寸 <span class="hint">自动加 3mm 出血</span></label>
+            <div class="sheet-size-row">
+              <div class="form-group">
+                <label class="unit">宽 (mm)</label>
+                <input type="number" class="sheet-width" data-sheet="1" min="1" step="1" placeholder="55" value="">
+              </div>
+              <div class="form-group">
+                <label class="unit">长 (mm)</label>
+                <input type="number" class="sheet-length" data-sheet="1" min="1" step="1" placeholder="30" value="">
+              </div>
+              <div class="form-group size-type-group">
+                <label class="unit">类型</label>
+                <select class="sheet-size-type" data-sheet="1">
+                  <option value="single" selected="">单张尺寸</option>
+                  <option value="spread">展开尺寸</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom: 0; margin-top: 12px;">
+            <label>附加工艺</label>
+            <div class="craft-list">
+              <label class="craft-item">
+                <input type="checkbox" value="craft3_1" data-sheet="1" data-craft="craft3_1">
+                <span>无色压凹（单面）</span>
+              </label>
+            
+              <label class="craft-item">
+                <input type="checkbox" value="craft3_2" data-sheet="1" data-craft="craft3_2">
+                <span>套字压凹（单面）</span>
+              </label>
+            
+              <label class="craft-item">
+                <input type="checkbox" value="craft3_3" data-sheet="1" data-craft="craft3_3">
+                <span>烫金 小面积（单面）</span>
+              </label>
+            
+              <label class="craft-item">
+                <input type="checkbox" value="craft3_4" data-sheet="1" data-craft="craft3_4">
+                <span>烫金 小面积（双面）</span>
+              </label>
+            
+              <label class="craft-item">
+                <input type="checkbox" value="craft3_5" data-sheet="1" data-craft="craft3_5">
+                <span>击凸（单面）</span>
+              </label>
+            </div>
+          </div>
+        </div></div>
         </div>
 
         <div class="form-group">
           <label>吊绳类型</label>
-          <div id="rope" class="rope-list"></div>
+          <div id="rope" class="rope-list">
+        <label class="rope-item">
+          <input type="radio" name="rope" value="rope0">
+          <span>不加吊绳</span>
+        </label>
+      
+        <label class="rope-item">
+          <input type="radio" name="rope" value="rope1" checked="">
+          <span>普通吊绳</span>
+        </label>
+      
+        <label class="rope-item">
+          <input type="radio" name="rope" value="rope2">
+          <span>黑色方头</span>
+        </label>
+      
+        <label class="rope-item">
+          <input type="radio" name="rope" value="rope3">
+          <span>白色方头</span>
+        </label>
+      
+        <label class="rope-item">
+          <input type="radio" name="rope" value="rope4">
+          <span>加长加粗子弹头</span>
+        </label>
+      
+        <label class="rope-item">
+          <input type="radio" name="rope" value="rope5">
+          <span>金色别针</span>
+        </label>
+      
+        <label class="rope-item">
+          <input type="radio" name="rope" value="rope6">
+          <span>米色棉绳</span>
+        </label>
+      
+        <label class="rope-item">
+          <input type="radio" name="rope" value="rope7">
+          <span>白色蜡绳</span>
+        </label>
+      
+        <label class="rope-item">
+          <input type="radio" name="rope" value="rope8">
+          <span>黑色蜡绳</span>
+        </label>
+      
+        <label class="rope-item">
+          <input type="radio" name="rope" value="rope9">
+          <span>黑色别针</span>
+        </label>
+      
+        <label class="rope-item">
+          <input type="radio" name="rope" value="rope10">
+          <span>黑双插圆柱蜡绳</span>
+        </label>
+      
+        <label class="rope-item">
+          <input type="radio" name="rope" value="rope11">
+          <span>白双插圆柱蜡绳</span>
+        </label>
+      
+        <label class="rope-item">
+          <input type="radio" name="rope" value="rope12">
+          <span>白色双插丝带</span>
+        </label>
+      
+        <label class="rope-item">
+          <input type="radio" name="rope" value="rope13">
+          <span>黑色双插丝带</span>
+        </label>
+      
+        <label class="rope-item">
+          <input type="radio" name="rope" value="rope14">
+          <span>紫色双插涤纶</span>
+        </label>
+      
+        <label class="rope-item">
+          <input type="radio" name="rope" value="rope15">
+          <span>粉色双插涤纶</span>
+        </label>
+      
+        <label class="rope-item">
+          <input type="radio" name="rope" value="rope16">
+          <span>黑色双插涤纶</span>
+        </label>
+      
+        <label class="rope-item">
+          <input type="radio" name="rope" value="rope17">
+          <span>白色双插涤纶</span>
+        </label>
+      
+        <label class="rope-item">
+          <input type="radio" name="rope" value="rope18">
+          <span>白色单插蜡绳</span>
+        </label>
+      
+        <label class="rope-item">
+          <input type="radio" name="rope" value="rope19">
+          <span>黑色单插蜡绳</span>
+        </label>
+      
+        <label class="rope-item">
+          <input type="radio" name="rope" value="rope20">
+          <span>黑色双插蜡绳</span>
+        </label>
+      
+        <label class="rope-item">
+          <input type="radio" name="rope" value="rope21">
+          <span>白色双插蜡绳</span>
+        </label>
+      
+        <label class="rope-item">
+          <input type="radio" name="rope" value="rope22">
+          <span>防拆条</span>
+        </label>
+      
+        <label class="rope-item">
+          <input type="radio" name="rope" value="rope23">
+          <span>空白防拆条</span>
+        </label>
+      
+        <label class="rope-item">
+          <input type="radio" name="rope" value="rope24">
+          <span>棉带防拆条</span>
+        </label>
+      
+        <label class="rope-item">
+          <input type="radio" name="rope" value="rope25">
+          <span>黑色光胶防拆条</span>
+        </label>
+      
+        <label class="rope-item">
+          <input type="radio" name="rope" value="rope26">
+          <span>防拆扣</span>
+        </label>
+      </div>
         </div>
 
         <div class="form-group">
           <label for="region">收货地区</label>
-          <select id="region">
-            <option value="">请选择地区</option>
-          </select>
+          <select id="region"><option value="">请选择地区</option><option value="region1">广东省内</option><option value="region2">江浙沪</option><option value="region3">其他省份</option></select>
         </div>
       </div>
 
@@ -1057,7 +1486,7 @@
             <span class="result-label">各纸张尺寸 / 面积 / 代码</span>
             <table class="sheet-result-table" id="resSheetTable">
               <thead>
-                <tr><th>纸张</th><th>尺寸 (mm)</th><th>面积 (mm²)</th><th>代码</th></tr>
+                <tr><th>纸张</th><th>尺寸 (mm)</th><th>面积 (mm²)</th><th>代码</th><th>单价</th></tr>
               </thead>
               <tbody></tbody>
             </table>
@@ -1087,9 +1516,7 @@
             <span class="result-value" id="resCost">-</span>
           </div>
           <div id="resWarnings" class="result-warnings" style="display:none;"></div>
-          <div id="priceCards" class="price-cards">
-            <!-- 动态生成 3 个客户等级报价卡片 -->
-          </div>
+          <div id="priceCards" class="price-cards"></div>
         </div>
       </div>
     </section>
@@ -1099,7 +1526,7 @@
       <div class="card">
         <h2 class="card-title">报价表查询</h2>
         <div class="table-toolbar">
-          <input type="text" id="searchInput" placeholder="输入代码或面积搜索..." />
+          <input type="text" id="searchInput" placeholder="输入代码或面积搜索...">
           <span class="paper-discount" id="paperDiscount">请先选择纸张</span>
           <span class="table-meta" id="tableMeta">行数：0</span>
         </div>
@@ -1135,9 +1562,9 @@
         </div>
 
         <div class="pagination">
-          <button class="btn" id="prevPaper" disabled>上一张</button>
+          <button class="btn" id="prevPaper" disabled="">上一张</button>
           <span class="page-info" id="paperPageInfo">-</span>
-          <button class="btn" id="nextPaper" disabled>下一张</button>
+          <button class="btn" id="nextPaper" disabled="">下一张</button>
         </div>
 
         <div class="notes" id="paperNotes">备注：切换纸张查看对应报价表。</div>
@@ -1159,7 +1586,35 @@
       <div class="card">
         <h2 class="card-title">客户建议价格 · 毛利系数</h2>
         <div id="levelSettings">
-          <!-- 动态生成客户等级与系数 -->
+        <div class="level-editor" data-level-id="level1">
+          <input type="text" class="level-name" value="普通客户" placeholder="等级名称">
+          <input type="number" class="level-coefficient" value="1.3" min="1" step="0.01">
+          <span class="unit">倍</span>
+          <button class="btn danger sm" data-action="remove-level" data-index="0">删除</button>
+        </div>
+      
+        <div class="level-editor" data-level-id="level2">
+          <input type="text" class="level-name" value="优质客户" placeholder="等级名称">
+          <input type="number" class="level-coefficient" value="1.15" min="1" step="0.01">
+          <span class="unit">倍</span>
+          <button class="btn danger sm" data-action="remove-level" data-index="1">删除</button>
+        </div>
+      
+        <div class="level-editor" data-level-id="level3">
+          <input type="text" class="level-name" value="大客户" placeholder="等级名称">
+          <input type="number" class="level-coefficient" value="1.05" min="1" step="0.01">
+          <span class="unit">倍</span>
+          <button class="btn danger sm" data-action="remove-level" data-index="2">删除</button>
+        </div>
+      </div>
+        <div class="setting-row" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border);">
+          <div class="setting-info">
+            <div class="setting-label">报价小数位数</div>
+            <div class="setting-desc">所有金额显示保留几位小数（修改后立即生效）</div>
+          </div>
+          <div class="setting-control">
+            <input type="number" id="decimalPlaces" min="0" max="4" value="2">
+          </div>
         </div>
         <div class="btn-group">
           <button class="btn secondary sm" id="addLevelBtn">+ 新增等级</button>
@@ -1176,8 +1631,13 @@
         </div>
 
         <div class="tab-panel active" id="panel-snapshot">
-          <h3 style="font-size:14px;color:var(--brand-dark);margin:6px 0 10px;">价格配置导入 / 导出</h3>
-          <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;">当前支持本地 JSON 与 Excel 导入导出；Excel 每个 Sheet 对应一张报价表。后续可对接后端数据库或 Cloudflare KV 实现多设备同步。</p>
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+            <div>
+              <h3 style="font-size:14px;color:var(--brand-dark);margin:0;">价格配置导入 / 导出</h3>
+              <p style="font-size:12px;color:var(--text-secondary);margin:4px 0 0;">当前支持本地 JSON 与 Excel 导入导出；Excel 每个 Sheet 对应一张报价表。后续可对接后端数据库或 Cloudflare KV 实现多设备同步。</p>
+            </div>
+            <button class="btn danger-outline sm" id="resetToDefaultsBtn" title="清空纸张/工艺/吊绳/客户等级的所有本地修改，恢复出厂配置（不影响报价历史与本地快照）">重置为默认配置</button>
+          </div>
 
           <div style="margin-bottom:18px;">
             <h4 style="font-size:13px;color:var(--brand-dark);margin-bottom:8px;">Excel 报价表</h4>
@@ -1185,7 +1645,7 @@
               <button class="btn" id="exportExcelBtn">导出报价表 Excel</button>
               <button class="btn secondary" id="importExcelBtn">导入报价表 Excel</button>
               <button class="btn secondary" id="downloadTemplateBtn">下载 Excel 模板</button>
-              <input type="file" id="importExcelFile" accept=".xlsx,.xls" style="display:none" />
+              <input type="file" id="importExcelFile" accept=".xlsx,.xls" style="display:none">
             </div>
             <div id="excelImportStatus" style="margin-top:10px;font-size:13px;color:var(--text-secondary);"></div>
           </div>
@@ -1196,15 +1656,26 @@
               <button class="btn" id="exportRopeExcelBtn">导出吊绳 Excel</button>
               <button class="btn secondary" id="importRopeExcelBtn">导入吊绳 Excel</button>
               <button class="btn secondary" id="downloadRopeTemplateBtn">下载吊绳模板</button>
-              <input type="file" id="importRopeExcelFile" accept=".xlsx,.xls" style="display:none" />
+              <input type="file" id="importRopeExcelFile" accept=".xlsx,.xls" style="display:none">
             </div>
             <div id="ropeExcelImportStatus" style="margin-top:10px;font-size:13px;color:var(--text-secondary);"></div>
+          </div>
+
+          <div style="margin-bottom:18px;">
+            <h4 style="font-size:13px;color:var(--brand-dark);margin-bottom:8px;">邮费报价</h4>
+            <div class="btn-group">
+              <button class="btn" id="exportShippingExcelBtn">导出邮费 Excel</button>
+              <button class="btn secondary" id="importShippingExcelBtn">导入邮费 Excel</button>
+              <button class="btn secondary" id="downloadShippingTemplateBtn">下载邮费模板</button>
+              <input type="file" id="importShippingExcelFile" accept=".xlsx,.xls" style="display:none">
+            </div>
+            <div id="shippingExcelImportStatus" style="margin-top:10px;font-size:13px;color:var(--text-secondary);"></div>
           </div>
 
           <div class="btn-group">
             <button class="btn" id="exportDataBtn">导出完整配置 JSON</button>
             <button class="btn secondary" id="importDataBtn">导入配置 JSON</button>
-            <input type="file" id="importFile" accept=".json" style="display:none" />
+            <input type="file" id="importFile" accept=".json" style="display:none">
           </div>
 
           <div style="margin-top:18px;">
@@ -1213,19 +1684,19 @@
             <div class="btn-group">
               <button class="btn" id="exportLocalBackupBtn">保存到本地文件</button>
               <button class="btn secondary" id="importLocalBackupBtn">从本地文件恢复</button>
-              <input type="file" id="importLocalBackupFile" accept=".json" style="display:none" />
+              <input type="file" id="importLocalBackupFile" accept=".json" style="display:none">
             </div>
             <div id="localBackupStatus" style="margin-top:10px;font-size:13px;color:var(--text-secondary);"></div>
           </div>
           <div style="margin-top:18px;">
             <h4 style="font-size:13px;color:var(--brand-dark);margin-bottom:8px;">本地快照列表</h4>
-            <table class="data-table" id="snapshotTable">
+            <table class="data-table" id="snapshotTable" style="display: none;">
               <thead>
                 <tr><th>快照名</th><th>时间</th><th>操作</th></tr>
               </thead>
               <tbody></tbody>
             </table>
-            <div class="empty-state" id="snapshotEmpty">暂无快照，点击下方按钮创建。</div>
+            <div class="empty-state" id="snapshotEmpty" style="display: block;">暂无快照，点击下方按钮创建。</div>
             <div class="btn-group">
               <button class="btn secondary sm" id="createSnapshotBtn">+ 创建当前快照</button>
               <button class="btn danger sm" id="clearSnapshotBtn">清空快照</button>
@@ -1236,13 +1707,13 @@
         <div class="tab-panel" id="panel-history">
           <h3 style="font-size:14px;color:var(--brand-dark);margin:6px 0 10px;">历史报价记录</h3>
           <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;">每次点击"保存报价"后将出现在这里；目前为占位，后续对接数据库持久化。</p>
-          <table class="data-table" id="historyTable">
+          <table class="data-table" id="historyTable" style="display: none;">
             <thead>
               <tr><th>时间</th><th>尺寸</th><th>纸张</th><th>档位</th><th>成本</th><th>建议价</th><th>操作</th></tr>
             </thead>
             <tbody></tbody>
           </table>
-          <div class="empty-state" id="historyEmpty">暂无报价记录。</div>
+          <div class="empty-state" id="historyEmpty" style="display: block;">暂无报价记录。</div>
           <div class="btn-group">
             <button class="btn secondary sm" id="addHistoryPlaceholderBtn">+ 添加示例记录</button>
             <button class="btn danger sm" id="clearHistoryBtn">清空记录</button>
@@ -1285,7 +1756,7 @@
             <div class="setting-desc">显示在报价单顶部</div>
           </div>
           <div class="setting-control">
-            <input type="text" id="companyName" placeholder="海洋吊牌厂" />
+            <input type="text" id="companyName" placeholder="海洋吊牌厂">
           </div>
         </div>
         <div class="setting-row">
@@ -1294,7 +1765,7 @@
             <div class="setting-desc">客户回拨用</div>
           </div>
           <div class="setting-control">
-            <input type="text" id="companyPhone" placeholder="待填写" />
+            <input type="text" id="companyPhone" placeholder="待填写">
           </div>
         </div>
         <div class="setting-row">
@@ -1303,9 +1774,7 @@
             <div class="setting-desc">打开计算器时的默认选项</div>
           </div>
           <div class="setting-control">
-            <select id="defaultTier">
-              <option value="">跟随纸张</option>
-            </select>
+            <select id="defaultTier"><option value="">跟随纸张</option><option value="500">500 张</option><option value="1000">1000 张</option><option value="2000">2000 张</option><option value="2500">2500 张</option><option value="5000">5000 张</option><option value="10000">10000 张</option><option value="20000">20000 张</option><option value="50000">50000 张</option></select>
           </div>
         </div>
         <div class="setting-row">
@@ -1314,9 +1783,7 @@
             <div class="setting-desc">打开计算器时吊绳单选默认选中</div>
           </div>
           <div class="setting-control">
-            <select id="defaultRope">
-              <option value="">跟随默认（普通吊绳）</option>
-            </select>
+            <select id="defaultRope"><option value="">跟随默认（普通吊绳）</option><option value="rope0">不加吊绳</option><option value="rope1">普通吊绳</option><option value="rope2">黑色方头</option><option value="rope3">白色方头</option><option value="rope4">加长加粗子弹头</option><option value="rope5">金色别针</option><option value="rope6">米色棉绳</option><option value="rope7">白色蜡绳</option><option value="rope8">黑色蜡绳</option><option value="rope9">黑色别针</option><option value="rope10">黑双插圆柱蜡绳</option><option value="rope11">白双插圆柱蜡绳</option><option value="rope12">白色双插丝带</option><option value="rope13">黑色双插丝带</option><option value="rope14">紫色双插涤纶</option><option value="rope15">粉色双插涤纶</option><option value="rope16">黑色双插涤纶</option><option value="rope17">白色双插涤纶</option><option value="rope18">白色单插蜡绳</option><option value="rope19">黑色单插蜡绳</option><option value="rope20">黑色双插蜡绳</option><option value="rope21">白色双插蜡绳</option><option value="rope22">防拆条</option><option value="rope23">空白防拆条</option><option value="rope24">棉带防拆条</option><option value="rope25">黑色光胶防拆条</option><option value="rope26">防拆扣</option></select>
           </div>
         </div>
         <div class="setting-row">
@@ -1325,18 +1792,7 @@
             <div class="setting-desc">打开计算器时默认显示的报价表</div>
           </div>
           <div class="setting-control">
-            <select id="defaultPaper">
-              <option value="">跟随默认（报价表 3）</option>
-            </select>
-          </div>
-        </div>
-        <div class="setting-row">
-          <div class="setting-info">
-            <div class="setting-label">报价小数位数</div>
-            <div class="setting-desc">显示金额保留几位小数</div>
-          </div>
-          <div class="setting-control">
-            <input type="number" id="decimalPlaces" min="0" max="4" value="2" />
+            <select id="defaultPaper"><option value="">跟随默认（报价表 3）</option><option value="paper1">350铜版纸</option><option value="paper2">400铜版纸</option><option value="paper3">702铜版纸</option><option value="paper4">606米白卡</option><option value="paper5">500白卡纸</option><option value="paper6">海成专用</option><option value="paper7">700布纹纸</option><option value="paper8">600牛皮纸</option><option value="paper9">40C棉麻布</option></select>
           </div>
         </div>
         <div class="btn-group">
@@ -1386,10 +1842,10 @@
         <div class="setting-row">
           <div class="setting-info">
             <div class="setting-label">当前版本</div>
-            <div class="setting-desc">海洋吊牌报价系统 v3.3</div>
+            <div class="setting-desc">海洋吊牌报价系统 v4.0</div>
           </div>
           <div class="setting-control">
-            <span class="placeholder-badge">开发版</span>
+            <span class="placeholder-badge">正式版</span>
           </div>
         </div>
         <div class="setting-row">
@@ -1401,11 +1857,31 @@
             <span class="placeholder-badge">本地</span>
           </div>
         </div>
+        <div class="setting-row">
+          <div class="setting-info">
+            <div class="setting-label">更新日志</div>
+            <div class="setting-desc">查看版本更新记录</div>
+          </div>
+          <div class="setting-control">
+            <button class="btn btn-secondary" onclick="showChangelog()" style="padding:6px 16px;font-size:13px;border-radius:8px;border:1px solid var(--rule,#dbe4f0);background:var(--accent-light,#e8f2fb);color:var(--accent-dark,#0a4f8a);cursor:pointer;">查看</button>
+          </div>
+        </div>
       </div>
     </section>
 
     <!-- 页面4：数据管理 + 页面5：更多 已合并到 个人主页（page-profile）中 -->
   </main>
+
+  <!-- 更新日志弹窗 -->
+  <div class="changelog-overlay" id="changelogOverlay" onclick="if(event.target===this)hideChangelog()">
+    <div class="changelog-dialog">
+      <div class="changelog-header">
+        <h3>更新日志</h3>
+        <button class="changelog-close" onclick="hideChangelog()">&times;</button>
+      </div>
+      <div class="changelog-body" id="changelogBody"></div>
+    </div>
+  </div>
 
   <!-- 提示条 -->
   <div class="toast" id="toast"></div>
@@ -2723,732 +3199,67 @@
         }
       }
     ]
-  },
-  {
-    "id": "paper10",
-    "name": "报价表 10：700克 A级布纹纸 双面过光油（厚度0.85mm）",
-    "shortName": "700布纹纸（光油）",
-    "discount": 1,
-    "specs": [
-      {
-        "code": "002",
-        "maxArea": 1999,
-        "prices": {
-          "1000": 35,
-          "2000": 63,
-          "3000": 91,
-          "4000": 112,
-          "5000": 125,
-          "10000": 230,
-          "20000": 440
-        }
-      },
-      {
-        "code": "003",
-        "maxArea": 4674,
-        "prices": {
-          "1000": 42,
-          "2000": 77,
-          "3000": 120,
-          "4000": 150,
-          "5000": 160,
-          "10000": 305,
-          "20000": 580
-        }
-      },
-      {
-        "code": "004",
-        "maxArea": 5814,
-        "prices": {
-          "1000": 50,
-          "2000": 90,
-          "3000": 140,
-          "4000": 175,
-          "5000": 200,
-          "10000": 380,
-          "20000": 720
-        }
-      },
-      {
-        "code": "005",
-        "maxArea": 4944,
-        "prices": {
-          "1000": 60,
-          "2000": 108,
-          "3000": 168,
-          "4000": 205,
-          "5000": 220,
-          "10000": 410,
-          "20000": 780
-        }
-      },
-      {
-        "code": "055",
-        "maxArea": 5459,
-        "prices": {
-          "1000": 66,
-          "2000": 115,
-          "3000": 175,
-          "4000": 220,
-          "5000": 240,
-          "10000": 450,
-          "20000": 850
-        }
-      },
-      {
-        "code": "006",
-        "maxArea": 6264,
-        "prices": {
-          "1000": 73,
-          "2000": 122,
-          "3000": 189,
-          "4000": 240,
-          "5000": 260,
-          "10000": 500,
-          "20000": 950
-        }
-      },
-      {
-        "code": "007",
-        "maxArea": 7999,
-        "prices": {
-          "1000": 90,
-          "2000": 154,
-          "3000": 231,
-          "4000": 290,
-          "5000": 320,
-          "10000": 600,
-          "20000": 1150
-        }
-      },
-      {
-        "code": "008",
-        "maxArea": 7999,
-        "prices": {
-          "1000": 112,
-          "2000": 175,
-          "3000": 266,
-          "4000": 330,
-          "5000": 400,
-          "10000": 760,
-          "20000": 1450
-        }
-      },
-      {
-        "code": "009",
-        "maxArea": 11169,
-        "prices": {
-          "1000": 130,
-          "2000": 203,
-          "3000": 315,
-          "4000": 378,
-          "5000": 450,
-          "10000": 850,
-          "20000": 1650
-        }
-      }
-    ]
   }
 ];
     /**
      * 工艺价格配置（默认配置）：按纸张 id 绑定，key 为纸张 id，value 为该纸张支持的工艺数组。
      */
     const DEFAULT_CRAFT_CONFIG = {
-  "paper1": [
-    {
-      "id": "craft1_1",
-      "name": "无色压凹",
-      "prices": {
-        "1000": 30,
-        "2000": 40,
-        "3000": 50,
-        "4000": 60,
-        "5000": 70,
-        "10000": 130
-      }
-    },
-    {
-      "id": "craft1_2",
-      "name": "套字压凹",
-      "prices": {
-        "1000": 80,
-        "2000": 90,
-        "3000": 100,
-        "4000": 110,
-        "5000": 120,
-        "10000": 230
-      }
-    },
-    {
-      "id": "craft1_3",
-      "name": "烫金 小面积",
-      "prices": {
-        "1000": 50,
-        "2000": 60,
-        "3000": 70,
-        "4000": 80,
-        "5000": 90,
-        "10000": 170
-      }
-    },
-    {
-      "id": "craft1_4",
-      "name": "烫金 小面积",
-      "prices": {
-        "1000": 70,
-        "2000": 80,
-        "3000": 90,
-        "4000": 100,
-        "5000": 120,
-        "10000": 230
-      }
-    },
-    {
-      "id": "craft1_5",
-      "name": "击凸",
-      "prices": {
-        "1000": 80,
-        "2000": 90,
-        "3000": 100,
-        "4000": 110,
-        "5000": 120,
-        "10000": 230
-      }
-    }
-  ],
+  "paper1": [],
   "paper2": [
-    {
-      "id": "craft2_1",
-      "name": "无色压凹",
-      "prices": {
-        "1000": 30,
-        "2000": 40,
-        "3000": 50,
-        "4000": 60,
-        "5000": 70,
-        "10000": 130
-      }
-    },
-    {
-      "id": "craft2_2",
-      "name": "套字压凹",
-      "prices": {
-        "1000": 80,
-        "2000": 90,
-        "3000": 100,
-        "4000": 110,
-        "5000": 120,
-        "10000": 230
-      }
-    },
-    {
-      "id": "craft2_3",
-      "name": "烫金 小面积",
-      "prices": {
-        "1000": 50,
-        "2000": 60,
-        "3000": 70,
-        "4000": 80,
-        "5000": 90,
-        "10000": 170
-      }
-    },
-    {
-      "id": "craft2_4",
-      "name": "烫金 小面积",
-      "prices": {
-        "1000": 70,
-        "2000": 80,
-        "3000": 90,
-        "4000": 100,
-        "5000": 120,
-        "10000": 230
-      }
-    },
-    {
-      "id": "craft2_5",
-      "name": "击凸",
-      "prices": {
-        "1000": 80,
-        "2000": 90,
-        "3000": 100,
-        "4000": 110,
-        "5000": 120,
-        "10000": 230
-      }
-    }
+    {"id": "craft2_1", "name": "烫金（单面）", "prices": {"1000": 90, "2000": 110, "3000": 130, "4000": 140, "5000": 160, "10000": 200, "20000": 280, "30000": 350, "50000": 450, "100000": 800}},
+    {"id": "craft2_2", "name": "烫金（双面）", "prices": {"1000": 110, "2000": 130, "3000": 150, "4000": 160, "5000": 200, "10000": 240, "20000": 380, "30000": 500, "50000": 800, "100000": 1400}},
+    {"id": "craft2_3", "name": "UV", "prices": {"1000": 100, "2000": 100, "3000": 130, "4000": 140, "5000": 160, "10000": 180, "20000": 240, "30000": 300, "50000": 400, "100000": 600}},
+    {"id": "craft2_4", "name": "鸡眼", "prices": {"1000": 40, "2000": 60, "3000": 90, "4000": 120, "5000": 150, "10000": 300, "20000": 600, "30000": 800, "50000": 1300, "100000": 2500}},
+    {"id": "craft2_5", "name": "凹凸", "prices": {"1000": 110, "2000": 120, "3000": 130, "4000": 140, "5000": 150, "10000": 200, "20000": 280, "30000": 320, "50000": 400, "100000": 500}}
   ],
   "paper3": [
-    {
-      "id": "craft3_1",
-      "name": "无色压凹",
-      "prices": {
-        "1000": 30,
-        "2000": 40,
-        "3000": 50,
-        "4000": 60,
-        "5000": 70,
-        "10000": 130
-      }
-    },
-    {
-      "id": "craft3_2",
-      "name": "套字压凹",
-      "prices": {
-        "1000": 80,
-        "2000": 90,
-        "3000": 100,
-        "4000": 110,
-        "5000": 120,
-        "10000": 230
-      }
-    },
-    {
-      "id": "craft3_3",
-      "name": "烫金 小面积",
-      "prices": {
-        "1000": 50,
-        "2000": 60,
-        "3000": 70,
-        "4000": 80,
-        "5000": 90,
-        "10000": 170
-      }
-    },
-    {
-      "id": "craft3_4",
-      "name": "烫金 小面积",
-      "prices": {
-        "1000": 70,
-        "2000": 80,
-        "3000": 90,
-        "4000": 100,
-        "5000": 120,
-        "10000": 230
-      }
-    },
-    {
-      "id": "craft3_5",
-      "name": "击凸",
-      "prices": {
-        "1000": 80,
-        "2000": 90,
-        "3000": 100,
-        "4000": 110,
-        "5000": 120,
-        "10000": 230
-      }
-    }
+    {"id": "craft3_1", "name": "无色压凹（单面）", "prices": {"1000": 50, "2000": 60, "3000": 70, "4000": 80, "5000": 90, "10000": 170, "20000": null, "50000": null}},
+    {"id": "craft3_2", "name": "套字压凹（单面）", "prices": {"1000": 80, "2000": 90, "3000": 100, "4000": 110, "5000": 120, "10000": 230, "20000": null, "50000": null}},
+    {"id": "craft3_3", "name": "烫金 小面积（单面）", "prices": {"1000": 50, "2000": 60, "3000": 70, "4000": 80, "5000": 90, "10000": 170, "20000": null, "50000": null}},
+    {"id": "craft3_4", "name": "烫金 小面积（双面）", "prices": {"1000": 70, "2000": 80, "3000": 90, "4000": 100, "5000": 120, "10000": 230, "20000": null, "50000": null}},
+    {"id": "craft3_5", "name": "击凸（单面）", "prices": {"1000": 80, "2000": 90, "3000": 100, "4000": 110, "5000": 120, "10000": 230, "20000": null, "50000": null}}
   ],
   "paper4": [
-    {
-      "id": "craft4_1",
-      "name": "无色压凹",
-      "prices": {
-        "1000": 30,
-        "2000": 40,
-        "3000": 50,
-        "4000": 60,
-        "5000": 70,
-        "10000": 130
-      }
-    },
-    {
-      "id": "craft4_2",
-      "name": "套字压凹",
-      "prices": {
-        "1000": 80,
-        "2000": 90,
-        "3000": 100,
-        "4000": 110,
-        "5000": 120,
-        "10000": 230
-      }
-    },
-    {
-      "id": "craft4_3",
-      "name": "烫金 小面积",
-      "prices": {
-        "1000": 50,
-        "2000": 60,
-        "3000": 70,
-        "4000": 80,
-        "5000": 90,
-        "10000": 170
-      }
-    },
-    {
-      "id": "craft4_4",
-      "name": "烫金 小面积",
-      "prices": {
-        "1000": 70,
-        "2000": 80,
-        "3000": 90,
-        "4000": 100,
-        "5000": 120,
-        "10000": 230
-      }
-    },
-    {
-      "id": "craft4_5",
-      "name": "击凸",
-      "prices": {
-        "1000": 80,
-        "2000": 90,
-        "3000": 100,
-        "4000": 110,
-        "5000": 120,
-        "10000": 230
-      }
-    }
+    {"id": "craft4_1", "name": "无色压凹（单面）", "prices": {"500": null, "1000": 30, "2000": 40, "2500": null, "5000": 70, "7500": null, "10000": 130, "20000": null, "30000": null, "50000": null}},
+    {"id": "craft4_2", "name": "套字压凹（单面）", "prices": {"500": null, "1000": 80, "2000": 90, "2500": null, "5000": 120, "7500": null, "10000": 230, "20000": null, "30000": null, "50000": null}},
+    {"id": "craft4_3", "name": "烫金 小面积（单面）", "prices": {"500": null, "1000": 50, "2000": 60, "2500": null, "5000": 90, "7500": null, "10000": 170, "20000": null, "30000": null, "50000": null}},
+    {"id": "craft4_4", "name": "烫金 小面积（双面）", "prices": {"500": null, "1000": 70, "2000": 80, "2500": null, "5000": 120, "7500": null, "10000": 230, "20000": null, "30000": null, "50000": null}},
+    {"id": "craft4_5", "name": "击凸（单面）", "prices": {"500": null, "1000": 80, "2000": 90, "2500": null, "5000": 120, "7500": null, "10000": 230, "20000": null, "30000": null, "50000": null}}
   ],
   "paper5": [
-    {
-      "id": "craft5_1",
-      "name": "无色压凹",
-      "prices": {
-        "1000": 30,
-        "2000": 40,
-        "3000": 50,
-        "4000": 60,
-        "5000": 70,
-        "10000": 130
-      }
-    },
-    {
-      "id": "craft5_2",
-      "name": "套字压凹",
-      "prices": {
-        "1000": 80,
-        "2000": 90,
-        "3000": 100,
-        "4000": 110,
-        "5000": 120,
-        "10000": 230
-      }
-    },
-    {
-      "id": "craft5_3",
-      "name": "烫金 小面积",
-      "prices": {
-        "1000": 50,
-        "2000": 60,
-        "3000": 70,
-        "4000": 80,
-        "5000": 90,
-        "10000": 170
-      }
-    },
-    {
-      "id": "craft5_4",
-      "name": "烫金 小面积",
-      "prices": {
-        "1000": 70,
-        "2000": 80,
-        "3000": 90,
-        "4000": 100,
-        "5000": 120,
-        "10000": 230
-      }
-    },
-    {
-      "id": "craft5_5",
-      "name": "击凸",
-      "prices": {
-        "1000": 80,
-        "2000": 90,
-        "3000": 100,
-        "4000": 110,
-        "5000": 120,
-        "10000": 230
-      }
-    }
+    {"id": "craft5_1", "name": "无色压凹（单面）", "prices": {"500": null, "1000": 30, "2000": 40, "2500": null, "5000": 70, "7500": null, "10000": 130, "20000": null, "30000": null, "50000": null}},
+    {"id": "craft5_2", "name": "套字压凹（单面）", "prices": {"500": null, "1000": 80, "2000": 90, "2500": null, "5000": 120, "7500": null, "10000": 230, "20000": null, "30000": null, "50000": null}},
+    {"id": "craft5_3", "name": "烫金 小面积（单面）", "prices": {"500": null, "1000": 50, "2000": 60, "2500": null, "5000": 90, "7500": null, "10000": 170, "20000": null, "30000": null, "50000": null}},
+    {"id": "craft5_4", "name": "烫金 小面积（双面）", "prices": {"500": null, "1000": 70, "2000": 80, "2500": null, "5000": 120, "7500": null, "10000": 230, "20000": null, "30000": null, "50000": null}},
+    {"id": "craft5_5", "name": "击凸（单面）", "prices": {"500": null, "1000": 80, "2000": 90, "2500": null, "5000": 120, "7500": null, "10000": 230, "20000": null, "30000": null, "50000": null}}
   ],
   "paper6": [
-    {
-      "id": "craft6_1",
-      "name": "烫金 小面积",
-      "prices": {
-        "1000": 50,
-        "2000": 60,
-        "3000": 70,
-        "4000": 80,
-        "5000": 90,
-        "10000": 170
-      }
-    },
-    {
-      "id": "craft6_2",
-      "name": "烫金 小面积",
-      "prices": {
-        "1000": 70,
-        "2000": 80,
-        "3000": 90,
-        "4000": 100,
-        "5000": 120,
-        "10000": 230
-      }
-    },
-    {
-      "id": "craft6_3",
-      "name": "凹凸",
-      "prices": {
-        "1000": 40,
-        "2000": 60,
-        "3000": 90,
-        "4000": 120,
-        "5000": 150,
-        "10000": 300
-      }
-    }
+    {"id": "craft6_1", "name": "烫金 小面积（单面）", "prices": {"1000": 50, "2000": 60, "3000": 70, "4000": 80, "5000": 90, "10000": 170, "20000": null}},
+    {"id": "craft6_2", "name": "烫金 小面积（双面）", "prices": {"1000": 70, "2000": 80, "3000": 90, "4000": 100, "5000": 120, "10000": 230, "20000": null}},
+    {"id": "craft6_3", "name": "鸡眼（单面）", "prices": {"1000": 40, "2000": 60, "3000": 90, "4000": 120, "5000": 150, "10000": 300, "20000": null}},
+    {"id": "craft6_4", "name": "鸡眼 （对折两张）", "prices": {"1000": 60, "2000": 120, "3000": 180, "4000": 240, "5000": 300, "10000": 550, "20000": null}}
   ],
   "paper7": [
-    {
-      "id": "craft7_1",
-      "name": "烫金 小面积",
-      "prices": {
-        "1000": 90,
-        "2000": 110,
-        "3000": 130,
-        "4000": 140,
-        "5000": 160,
-        "10000": 200
-      }
-    },
-    {
-      "id": "craft7_2",
-      "name": "烫金 小面积",
-      "prices": {
-        "1000": 110,
-        "2000": 130,
-        "3000": 150,
-        "4000": 160,
-        "5000": 200,
-        "10000": 240
-      }
-    },
-    {
-      "id": "craft7_3",
-      "name": "凹凸",
-      "prices": {
-        "1000": 110,
-        "2000": 120,
-        "3000": 130,
-        "4000": 140,
-        "5000": 150,
-        "10000": 200
-      }
-    },
-    {
-      "id": "craft7_4",
-      "name": "鸡眼",
-      "prices": {
-        "1000": 40,
-        "2000": 60,
-        "3000": 90,
-        "4000": 120,
-        "5000": 150,
-        "10000": 300
-      }
-    },
-    {
-      "id": "craft7_5",
-      "name": "无色压凹",
-      "prices": {
-        "1000": 110,
-        "2000": 120,
-        "3000": 130,
-        "4000": 140,
-        "5000": 150,
-        "10000": 200
-      }
-    },
-    {
-      "id": "craft7_6",
-      "name": "深凹烫金",
-      "prices": {
-        "1000": 110,
-        "2000": 120,
-        "3000": 130,
-        "4000": 140,
-        "5000": 150,
-        "10000": 200
-      }
-    }
+    {"id": "craft7_1", "name": "烫金小面积(单面）", "prices": {"1000": 90, "2000": 110, "3000": 130, "4000": 140, "5000": 160, "10000": 200, "20000": null}},
+    {"id": "craft7_2", "name": "烫金小面积(双面）", "prices": {"1000": 110, "2000": 130, "3000": 150, "4000": 160, "5000": 200, "10000": 240, "20000": null}},
+    {"id": "craft7_3", "name": "凹凸", "prices": {"1000": 110, "2000": 120, "3000": 130, "4000": 140, "5000": 150, "10000": 200, "20000": null}},
+    {"id": "craft7_4", "name": "鸡眼", "prices": {"1000": 40, "2000": 60, "3000": 90, "4000": 120, "5000": 150, "10000": 300, "20000": null}},
+    {"id": "craft7_5", "name": "无色压凹（单面）", "prices": {"1000": 110, "2000": 120, "3000": 130, "4000": 140, "5000": 150, "10000": 200, "20000": null}},
+    {"id": "craft7_6", "name": "深凹烫金（单面）", "prices": {"1000": 110, "2000": 120, "3000": 130, "4000": 140, "5000": 150, "10000": 200, "20000": null}}
   ],
   "paper8": [
-    {
-      "id": "craft8_1",
-      "name": "烫金 小面积",
-      "prices": {
-        "1000": 50,
-        "2000": 60,
-        "3000": 70,
-        "4000": 80,
-        "5000": 90,
-        "10000": 170
-      }
-    },
-    {
-      "id": "craft8_2",
-      "name": "烫金 小面积",
-      "prices": {
-        "1000": 70,
-        "2000": 80,
-        "3000": 90,
-        "4000": 100,
-        "5000": 120,
-        "10000": 230
-      }
-    },
-    {
-      "id": "craft8_3",
-      "name": "凹凸",
-      "prices": {
-        "1000": 80,
-        "2000": 90,
-        "3000": 100,
-        "4000": 110,
-        "5000": 120,
-        "10000": 230
-      }
-    },
-    {
-      "id": "craft8_4",
-      "name": "鸡眼",
-      "prices": {
-        "1000": 40,
-        "2000": 60,
-        "3000": 90,
-        "4000": 120,
-        "5000": 150,
-        "10000": 300
-      }
-    },
-    {
-      "id": "craft8_5",
-      "name": "丝印白",
-      "prices": {
-        "1000": 30,
-        "2000": 40,
-        "3000": 50,
-        "4000": 60,
-        "5000": 70,
-        "10000": 130
-      }
-    },
-    {
-      "id": "craft8_6",
-      "name": "丝印白",
-      "prices": {
-        "1000": 50,
-        "2000": 60,
-        "3000": 70,
-        "4000": 90,
-        "5000": 90,
-        "10000": 160
-      }
-    }
+    {"id": "craft8_1", "name": "烫金 小面积（单面）", "prices": {"1000": 50, "2000": 60, "3000": 70, "4000": 80, "5000": 90, "10000": 170, "20000": null}},
+    {"id": "craft8_2", "name": "烫金 小面积（双面）", "prices": {"1000": 70, "2000": 80, "3000": 90, "4000": 100, "5000": 120, "10000": 230, "20000": null}},
+    {"id": "craft8_3", "name": "凹凸", "prices": {"1000": 80, "2000": 90, "3000": 100, "4000": 110, "5000": 120, "10000": 230, "20000": null}},
+    {"id": "craft8_4", "name": "鸡眼", "prices": {"1000": 40, "2000": 60, "3000": 90, "4000": 120, "5000": 150, "10000": 300, "20000": null}},
+    {"id": "craft8_5", "name": "丝印白（单面）", "prices": {"1000": 30, "2000": 40, "3000": 50, "4000": 60, "5000": 70, "10000": 130, "20000": null}},
+    {"id": "craft8_6", "name": "丝印白（双面）", "prices": {"1000": 50, "2000": 60, "3000": 70, "4000": 90, "5000": 90, "10000": 160, "20000": null}}
   ],
   "paper9": [
-    {
-      "id": "craft9_1",
-      "name": "专色",
-      "prices": {
-        "1000": 90,
-        "2000": 120,
-        "3000": 150,
-        "4000": 180,
-        "5000": 200,
-        "10000": 300
-      }
-    },
-    {
-      "id": "craft9_2",
-      "name": "黑白图案",
-      "prices": {
-        "1000": 30,
-        "2000": 50,
-        "3000": 70,
-        "4000": 90,
-        "5000": 120,
-        "10000": 200
-      }
-    },
-    {
-      "id": "craft9_3",
-      "name": "红色",
-      "prices": {
-        "1000": 30,
-        "2000": 50,
-        "3000": 70,
-        "4000": 90,
-        "5000": 120,
-        "10000": 200
-      }
-    }
-  ],
-  "paper10": [
-    {
-      "id": "craft10_1",
-      "name": "烫金小面积",
-      "prices": {
-        "1000": 90,
-        "2000": 110,
-        "3000": 130,
-        "4000": 140,
-        "5000": 160,
-        "10000": 200
-      }
-    },
-    {
-      "id": "craft10_2",
-      "name": "凹凸",
-      "prices": {
-        "1000": 110,
-        "2000": 120,
-        "3000": 130,
-        "4000": 140,
-        "5000": 150,
-        "10000": 200
-      }
-    },
-    {
-      "id": "craft10_3",
-      "name": "鸡眼",
-      "prices": {
-        "1000": 40,
-        "2000": 60,
-        "3000": 90,
-        "4000": 120,
-        "5000": 150,
-        "10000": 300
-      }
-    },
-    {
-      "id": "craft10_4",
-      "name": "无色压凹",
-      "prices": {
-        "1000": 110,
-        "2000": 120,
-        "3000": 130,
-        "4000": 140,
-        "5000": 150,
-        "10000": 200
-      }
-    },
-    {
-      "id": "craft10_5",
-      "name": "深凹烫金",
-      "prices": {
-        "1000": 110,
-        "2000": 120,
-        "3000": 130,
-        "4000": 140,
-        "5000": 150,
-        "10000": 200
-      }
-    }
+    {"id": "craft9_1", "name": "专色（单面）", "prices": {"1000": 90, "2000": 120, "3000": 150, "4000": 180, "5000": 200, "10000": 300}},
+    {"id": "craft9_2", "name": "黑白图案（单面）", "prices": {"1000": 30, "2000": 50, "3000": 70, "4000": 90, "5000": 120, "10000": 200}},
+    {"id": "craft9_3", "name": "红色（单面）", "prices": {"1000": 30, "2000": 50, "3000": 70, "4000": 90, "5000": 120, "10000": 200}}
   ]
 };
     /**
@@ -3492,6 +3303,7 @@
       { id: "region2", name: "江浙沪", basePrices: { 500: 15, 1000: 20, 2000: 28, 3000: 36, 5000: 50 }, smallAreaThreshold: 2500, discount: 0.8 },
       { id: "region3", name: "其他省份", basePrices: { 500: 18, 1000: 25, 2000: 35, 3000: 45, 5000: 65 }, smallAreaThreshold: 2500, discount: 0.8 }
     ];
+    const DEFAULT_SHIPPING_CONFIG = SHIPPING_CONFIG.map(s => ({ ...s, basePrices: { ...s.basePrices } }));
 
     /**
      * 客户等级与毛利系数配置。
@@ -3502,11 +3314,30 @@
       { id: "level3", name: "大客户", coefficient: 1.05 }
     ];
 
-    // 运行时配置：优先从 localStorage 读取，后续可迁移到数据库
-    let PAPER_CONFIG = loadFromStorage("paperConfig", DEFAULT_PAPER_CONFIG);
-    let ROPE_CONFIG = loadFromStorage("ropeConfig", DEFAULT_ROPE_CONFIG);
-    let CRAFT_CONFIG = loadFromStorage("craftConfig", DEFAULT_CRAFT_CONFIG);
-    let CUSTOMER_LEVELS = loadFromStorage("customerLevels", DEFAULT_CUSTOMER_LEVELS);
+    /**
+     * 测试阶段策略：纸张/工艺/吊绳的配置始终使用内置 DEFAULT（云端），
+     * 不读写 localStorage。导入的本地数据仅在当前会话有效，刷新后自动丢弃。
+     * 客户等级（毛利系数）、APP_PROFILE、报价历史、本地快照等正常持久化。
+     */
+    const EPHEMERAL_KEYS = ["paperConfig", "craftConfig", "ropeConfig"];
+
+    // 测试阶段：启动时清空旧缓存的报价配置，始终使用内置 DEFAULT（云端）
+    EPHEMERAL_KEYS.forEach(k => {
+      try { localStorage.removeItem("tagPricing_" + k); } catch (e) {}
+    });
+
+    // 运行时配置：测试阶段始终使用 DEFAULT，localStorage 中的报价配置被忽略
+    let PAPER_CONFIG = DEFAULT_PAPER_CONFIG.map(p => ({
+      ...p,
+      specs: p.specs.map(s => ({ ...s, prices: { ...s.prices } }))
+    }));
+    let ROPE_CONFIG = DEFAULT_ROPE_CONFIG.map(r => ({ ...r, prices: { ...r.prices } }));
+    let CRAFT_CONFIG = {};
+    Object.keys(DEFAULT_CRAFT_CONFIG).forEach(k => {
+      CRAFT_CONFIG[k] = DEFAULT_CRAFT_CONFIG[k].map(c => ({ ...c, prices: { ...c.prices } }));
+    });
+    // 客户等级（毛利系数）持久化到 localStorage，刷新后保留用户自定义
+    let CUSTOMER_LEVELS = loadFromStorage("customerLevels", DEFAULT_CUSTOMER_LEVELS.map(l => ({ ...l })));
     let APP_PROFILE = loadFromStorage("appProfile", {
       companyName: "海洋吊牌厂",
       companyPhone: "",
@@ -3524,12 +3355,19 @@
     // ============================================================
 
     /**
-     * 金额格式化：保留两位小数。
+     * 安全解析小数位数：0 有效，NaN/空值回退 2，范围 0-4。
+     */
+    function parseDecimalPlaces(val) {
+      const n = parseInt(val, 10);
+      return isNaN(n) ? 2 : Math.max(0, Math.min(4, n));
+    }
+
+    /**
+     * 金额格式化：按 APP_PROFILE.decimalPlaces 保留小数。
      */
     function formatMoney(value) {
       if (typeof value !== "number" || isNaN(value)) return "-";
-      const decimals = Math.max(0, Math.min(4, parseInt(APP_PROFILE.decimalPlaces, 10) || 2));
-      return value.toFixed(decimals);
+      return value.toFixed(parseDecimalPlaces(APP_PROFILE.decimalPlaces));
     }
 
     /**
@@ -3562,31 +3400,12 @@
     }
 
     /**
-     * 根据目标档位向上匹配实际档位。
-     */
-    function matchTier(pricesObj, tier) {
-      const tiers = Object.keys(pricesObj)
-        .map(Number)
-        .sort((a, b) => a - b);
-      for (const t of tiers) {
-        if (t >= tier) return t;
-      }
-      return tiers[tiers.length - 1];
-    }
-
-    /**
-     * 从价格对象中取值；若不存在目标档位则向上取最近档位。
-     */
-    function getPriceByTier(pricesObj, tier) {
-      const actualTier = matchTier(pricesObj, tier);
-      return pricesObj[actualTier];
-    }
-
-    /**
      * 判断价格对象是否包含指定档位的精确价格。
      */
     function hasExactTier(pricesObj, tier) {
-      return pricesObj && Object.keys(pricesObj).map(Number).includes(Number(tier));
+      if (!pricesObj) return false;
+      const v = pricesObj[tier];
+      return v != null && !isNaN(Number(v));
     }
 
     /**
@@ -3615,6 +3434,8 @@
       let craftTotal = 0;
       const warnings = [];
       const sheetDetails = [];
+      // 是否有任一纸张/工艺在所选档位没有定价（用于显示"无该批量定价"占位）
+      let hasMissingTier = false;
 
       for (const sheet of sheets) {
         const { width, length, sizeType, paperId, craftIds } = sheet;
@@ -3631,19 +3452,34 @@
           return { error: spec.message };
         }
 
-        // 纸张折后价
-        if (!hasExactTier(spec.prices, tier)) {
-          warnings.push(`「${paper.shortName || paper.name}」无 ${tier} 张批量定价，已向上取档`);
+        // 纸张折后价：精确匹配档位，无值则占位
+        const paperUnitPrice = hasExactTier(spec.prices, tier)
+          ? Number(spec.prices[tier]) * paper.discount
+          : null;
+        if (paperUnitPrice == null) {
+          hasMissingTier = true;
+          warnings.push(`「${paper.shortName || paper.name}」无 ${tier} 张批量定价`);
+        } else {
+          paperTotal += paperUnitPrice;
         }
-        paperTotal += getPriceByTier(spec.prices, tier) * paper.discount;
 
-        // 工艺费用
+        // 工艺费用：每个工艺独立检查档位，无值则跳过并提示
         const crafts = CRAFT_CONFIG[sheet.paperId] || [];
+        const sheetCraftDetails = [];
         if (craftIds && craftIds.length) {
           for (const cid of craftIds) {
             const craft = crafts.find(c => c.id === cid);
-            if (craft) {
-              craftTotal += getPriceByTier(craft.prices, tier);
+            if (!craft) continue;
+            const cPrice = hasExactTier(craft.prices, tier)
+              ? Number(craft.prices[tier])
+              : null;
+            if (cPrice == null) {
+              hasMissingTier = true;
+              warnings.push(`「${paper.shortName || paper.name}」工艺「${craft.name}」无 ${tier} 张批量定价`);
+              sheetCraftDetails.push({ id: craft.id, name: craft.name, price: null, missing: true });
+            } else {
+              craftTotal += cPrice;
+              sheetCraftDetails.push({ id: craft.id, name: craft.name, price: cPrice, missing: false });
             }
           }
         }
@@ -3654,21 +3490,39 @@
           length,
           sizeType,
           area: singleArea,
-          code: spec.code
+          code: spec.code,
+          unitPrice: paperUnitPrice,
+          missing: paperUnitPrice == null,
+          crafts: sheetCraftDetails
         });
       }
 
       // 吊绳费用
-      const ropePrice = getPriceByTier(rope.prices, tier);
-
-      // 邮费（以第一张纸的面积判断小面积折扣）
-      let shippingPrice = getPriceByTier(region.basePrices, tier);
-      if (sheetDetails.length && sheetDetails[0].area < region.smallAreaThreshold) {
-        shippingPrice *= region.discount;
+      const ropePrice = hasExactTier(rope.prices, tier)
+        ? Number(rope.prices[tier])
+        : null;
+      if (ropePrice == null) {
+        hasMissingTier = true;
+        warnings.push(`吊绳「${rope.name}」无 ${tier} 张批量定价`);
       }
 
-      // 成本合计
-      const cost = paperTotal + craftTotal + ropePrice + shippingPrice;
+      // 邮费（以第一张纸的面积判断小面积折扣）
+      let shippingPrice = hasExactTier(region.basePrices, tier)
+        ? Number(region.basePrices[tier])
+        : null;
+      if (shippingPrice != null && sheetDetails.length && sheetDetails[0].area < region.smallAreaThreshold) {
+        shippingPrice *= region.discount;
+      } else if (shippingPrice == null) {
+        hasMissingTier = true;
+        warnings.push(`地区「${region.name}」无 ${tier} 张批量定价`);
+      }
+
+      // 成本合计（仅累加有定价的部分；缺价时显示为"部分缺价"）
+      const costKnown = [paperTotal, craftTotal, ropePrice, shippingPrice].every(v => v != null);
+      const cost = costKnown
+        ? (paperTotal + craftTotal + ropePrice + shippingPrice)
+        : (paperTotal + craftTotal + (ropePrice || 0) + (shippingPrice || 0)); // 仍把已知的相加，但标记不完整
+      const costIncomplete = !costKnown;
 
       // 三个客户等级的建议报价
       const pricesByLevel = CUSTOMER_LEVELS.map(level => ({
@@ -3686,6 +3540,8 @@
         ropePrice,
         shippingPrice,
         cost,
+        costIncomplete,
+        hasMissingTier,
         pricesByLevel,
         warnings
       };
@@ -3738,6 +3594,7 @@
       tabPanels: document.querySelectorAll(".tab-panel"),
       exportDataBtn: document.getElementById("exportDataBtn"),
       importDataBtn: document.getElementById("importDataBtn"),
+      resetToDefaultsBtn: document.getElementById("resetToDefaultsBtn"),
       exportLocalBackupBtn: document.getElementById("exportLocalBackupBtn"),
       importLocalBackupBtn: document.getElementById("importLocalBackupBtn"),
       importLocalBackupFile: document.getElementById("importLocalBackupFile"),
@@ -3753,6 +3610,11 @@
       importRopeExcelFile: document.getElementById("importRopeExcelFile"),
       downloadRopeTemplateBtn: document.getElementById("downloadRopeTemplateBtn"),
       ropeExcelImportStatus: document.getElementById("ropeExcelImportStatus"),
+      exportShippingExcelBtn: document.getElementById("exportShippingExcelBtn"),
+      importShippingExcelBtn: document.getElementById("importShippingExcelBtn"),
+      importShippingExcelFile: document.getElementById("importShippingExcelFile"),
+      downloadShippingTemplateBtn: document.getElementById("downloadShippingTemplateBtn"),
+      shippingExcelImportStatus: document.getElementById("shippingExcelImportStatus"),
       snapshotTable: document.getElementById("snapshotTable"),
       snapshotEmpty: document.getElementById("snapshotEmpty"),
       createSnapshotBtn: document.getElementById("createSnapshotBtn"),
@@ -3768,14 +3630,7 @@
     let sheetsState = [];
 
     // -------------------- 初始化下拉选项 --------------------
-    function initOptions() {
-      // 批量档位：基于第一张纸的规格价格 keys（取并集）
-      updateTierOptions(true);
-
-      // 吊绳（三列单选）
-      els.rope.innerHTML = renderRopeRadios();
-
-    // 根据 APP_PROFILE.defaultRope 生成吊绳单选项 HTML
+    // 根据 APP_PROFILE.defaultRope 生成吊绳单选项 HTML（顶层作用域，供 initOptions 和 rebuildRopeUI 共用）
     function renderRopeRadios() {
       const fallback = "rope1"; // 默认「普通吊绳」
       const desired = APP_PROFILE.defaultRope || fallback;
@@ -3789,9 +3644,21 @@
       `).join("");
     }
 
-      // 地区
-      els.region.innerHTML = '<option value="">请选择地区</option>' +
-        SHIPPING_CONFIG.map(s => `<option value="${s.id}">${s.name}</option>`).join("");
+    function initOptions() {
+      // 批量档位：基于第一张纸的规格价格 keys（取并集）
+      updateTierOptions(true);
+
+      // 吊绳（三列单选）
+      els.rope.innerHTML = renderRopeRadios();
+
+      // 地区：默认选中第一项（广东省内），确保页面加载后即可计算
+      if (els.region) {
+        els.region.innerHTML = '<option value="">请选择地区</option>' +
+          SHIPPING_CONFIG.map(s => `<option value="${s.id}">${s.name}</option>`).join("");
+        if (SHIPPING_CONFIG.length > 0) {
+          els.region.value = SHIPPING_CONFIG[0].id;
+        }
+      }
     }
 
     /**
@@ -3839,8 +3706,8 @@
         newSheets.push({
           paperId: old && old.paperId ? old.paperId : "paper3",
           craftIds: old && old.craftIds ? old.craftIds.slice() : [],
-          width: old && old.width ? old.width : "",
-          length: old && old.length ? old.length : "",
+          width: old && old.width ? old.width : "55",
+          length: old && old.length ? old.length : "30",
           sizeType: old && old.sizeType ? old.sizeType : "single"
         });
       }
@@ -3854,8 +3721,8 @@
         const currentPaper = PAPER_CONFIG.find(p => p.id === sheet.paperId) || PAPER_CONFIG[0];
         const paperOptions = PAPER_CONFIG.map(p => `
           <div class="paper-option${p.id === sheet.paperId ? " active" : ""}" data-sheet="${index}" data-paper="${p.id}">
-            <span class="paper-name">${p.shortName || p.name}</span>
-            <span class="paper-desc">${p.name}</span>
+            <span class="paper-name">${escapeHtml(p.shortName || p.name)}</span>
+            <span class="paper-desc">${escapeHtml(p.name)}</span>
           </div>
         `).join("");
 
@@ -3864,7 +3731,7 @@
           ? crafts.map(c => `
               <label class="craft-item">
                 <input type="checkbox" value="${c.id}" data-sheet="${index}" data-craft="${c.id}"${sheet.craftIds.includes(c.id) ? " checked" : ""} />
-                <span>${c.name}</span>
+                <span>${escapeHtml(c.name)}</span>
               </label>
             `).join("")
           : '<div class="craft-empty">该纸张暂无附加工艺</div>';
@@ -3876,8 +3743,8 @@
             <div class="paper-dropdown" data-sheet="${index}">
               <div class="paper-trigger">
                 <div>
-                  <span class="paper-trigger-text">${currentPaper.shortName || currentPaper.name}</span>
-                  <span class="paper-trigger-desc">${currentPaper.name}</span>
+                  <span class="paper-trigger-text">${escapeHtml(currentPaper.shortName || currentPaper.name)}</span>
+                  <span class="paper-trigger-desc">${escapeHtml(currentPaper.name)}</span>
                 </div>
                 <span class="paper-trigger-arrow"></span>
               </div>
@@ -3932,10 +3799,13 @@
       els.sheetList.querySelectorAll("input[type=checkbox][data-craft]").forEach(cb => {
         cb.addEventListener("change", onCraftChange);
       });
-      // 绑定每张纸的尺寸输入
-      els.sheetList.querySelectorAll(".sheet-width, .sheet-length, .sheet-size-type").forEach(input => {
+      // 绑定每张纸的尺寸输入（input 元素同时绑定 input+change，select 元素仅绑定 change 避免双触发）
+      els.sheetList.querySelectorAll(".sheet-width, .sheet-length").forEach(input => {
         input.addEventListener("input", onSheetSizeChange);
         input.addEventListener("change", onSheetSizeChange);
+      });
+      els.sheetList.querySelectorAll(".sheet-size-type").forEach(sel => {
+        sel.addEventListener("change", onSheetSizeChange);
       });
 
       // 若第一张纸发生变化，需要更新档位选项
@@ -4040,17 +3910,21 @@
             <td>${escapeHtml(s.paperName)}</td>
             <td>${s.width} × ${s.length}${s.sizeType === "spread" ? "（展开）" : ""}</td>
             <td>${s.area} mm²</td>
-            <td>${s.code}</td>
+            <td>${escapeHtml(s.code)}</td>
+            <td>${s.missing ? '<span class="price-missing">无该批量定价</span>' : '¥ ' + formatMoney(s.unitPrice)}</td>
           </tr>
         `).join("");
       }
 
       els.resTier.textContent = result.tier + " 张";
-      els.resPaperPrice.textContent = "¥ " + formatMoney(result.paperTotal);
-      els.resCraftPrice.textContent = "¥ " + formatMoney(result.craftTotal);
-      els.resRopePrice.textContent = "¥ " + formatMoney(result.ropePrice);
-      els.resShippingPrice.textContent = "¥ " + formatMoney(result.shippingPrice);
-      els.resCost.textContent = "¥ " + formatMoney(result.cost);
+      // 占位需用 innerHTML 渲染（textContent 会把 HTML 当文本输出，导致徽章源码可见）
+      els.resPaperPrice.innerHTML = result.paperTotal ? "¥ " + formatMoney(result.paperTotal) : '<span class="price-missing">无该批量定价</span>';
+      els.resCraftPrice.innerHTML = result.craftTotal ? "¥ " + formatMoney(result.craftTotal) : '<span class="price-missing">无该批量定价</span>';
+      els.resRopePrice.innerHTML = result.ropePrice != null ? "¥ " + formatMoney(result.ropePrice) : '<span class="price-missing">无该批量定价</span>';
+      els.resShippingPrice.innerHTML = result.shippingPrice != null ? "¥ " + formatMoney(result.shippingPrice) : '<span class="price-missing">无该批量定价</span>';
+      els.resCost.innerHTML = result.costIncomplete
+        ? '<span class="price-missing">部分缺价</span>'
+        : "¥ " + formatMoney(result.cost);
 
       // 渲染档位缺失警告
       if (result.warnings && result.warnings.length && els.resWarnings) {
@@ -4065,7 +3939,9 @@
       els.priceCards.innerHTML = result.pricesByLevel.map((item, idx) => `
         <div class="price-card${idx === 0 ? " highlight" : ""}">
           <div class="level-name">${item.levelName}</div>
-          <div class="level-price">${formatMoney(item.price)}<span class="unit">元</span></div>
+          <div class="level-price">${result.costIncomplete
+            ? '<span class="price-missing">部分缺价</span>'
+            : formatMoney(item.price) + '<span class="unit">元</span>'}</div>
         </div>
       `).join("");
     }
@@ -4110,7 +3986,11 @@
         <tr>
           <td>${s.code}</td>
           <td>${s.maxArea}</td>
-          ${tiers.map(t => `<td>¥ ${s.prices[t].toFixed(2)}</td>`).join("")}
+          ${tiers.map(t => {
+            const v = s.prices[t];
+            if (v == null) return '<td><span class="price-missing">无该批量定价</span></td>';
+            return `<td>¥ ${formatMoney(Number(v))}</td>`;
+          }).join("")}
         </tr>
       `).join("");
 
@@ -4129,8 +4009,12 @@
       craftTbody.innerHTML = crafts.length
         ? crafts.map(c => `
             <tr>
-              <td>${c.name}</td>
-              ${tiers.map(t => `<td>¥ ${(c.prices[t] != null ? c.prices[t] : 0).toFixed(2)}</td>`).join("")}
+              <td>${escapeHtml(c.name)}</td>
+              ${tiers.map(t => {
+                const v = c.prices[t];
+                if (v == null) return '<td><span class="price-missing">无该批量定价</span></td>';
+                return `<td>¥ ${formatMoney(Number(v))}</td>`;
+              }).join("")}
             </tr>
           `).join("")
         : '<tr><td colspan="' + (tiers.length + 1) + '" style="text-align:center;color:var(--text-secondary);">该纸张暂无工艺配置</td></tr>';
@@ -4162,10 +4046,40 @@
     }
 
     // ============================================================
+    // ===================== 更新日志（v4.0 起） ====================
+    // ============================================================
+    // 每次版本更新在此追加一条，最多保留最近 8 条
+    const CHANGELOG = [
+      { ver: "v4.0", date: "2026-08-05", desc: "删除TRAE CSS污染(1213行)、修复XSS防护/快照数据不完整/小数位硬编码/事件重复绑定/死函数清理" },
+      { ver: "v3.9", date: "2026-08-04", desc: "修复小数位数0值导致NaN崩溃、引入parseDecimalPlaces安全解析" },
+      { ver: "v3.8", date: "2026-08-04", desc: "禁用数字输入框滚轮调数、增加邮费Excel导入导出功能" },
+      { ver: "v3.4", date: "2026-08-03", desc: "初始版本，基础报价计算+Excel导入导出+Cloudflare Pages部署" }
+    ];
+
+    function showChangelog() {
+      const body = document.getElementById("changelogBody");
+      if (!body) return;
+      body.innerHTML = CHANGELOG.map(function(item) {
+        return '<div class="changelog-item">' +
+          '<span class="changelog-ver">' + escapeHtml(item.ver) + '</span>' +
+          '<span class="changelog-date">' + escapeHtml(item.date) + '</span>' +
+          '<div class="changelog-desc">' + escapeHtml(item.desc) + '</div>' +
+        '</div>';
+      }).join("");
+      document.getElementById("changelogOverlay").classList.add("show");
+    }
+
+    function hideChangelog() {
+      var overlay = document.getElementById("changelogOverlay");
+      if (overlay) overlay.classList.remove("show");
+    }
+
+    // ============================================================
     // ===================== 本地存储与扩展功能 =====================
     // ============================================================
 
     function saveToStorage(key, value) {
+      if (EPHEMERAL_KEYS.includes(key)) return; // 测试阶段：报价配置不持久化
       try {
         localStorage.setItem("tagPricing_" + key, JSON.stringify(value));
       } catch (e) {
@@ -4174,6 +4088,7 @@
     }
 
     function loadFromStorage(key, defaultValue) {
+      if (EPHEMERAL_KEYS.includes(key)) return defaultValue; // 测试阶段：报价配置始终用 DEFAULT
       try {
         const raw = localStorage.getItem("tagPricing_" + key);
         return raw ? JSON.parse(raw) : defaultValue;
@@ -4192,7 +4107,7 @@
       if (!els.levelSettings) return;
       els.levelSettings.innerHTML = CUSTOMER_LEVELS.map((level, index) => `
         <div class="level-editor" data-level-id="${level.id}">
-          <input type="text" class="level-name" value="${level.name}" placeholder="等级名称" />
+          <input type="text" class="level-name" value="${escapeHtml(level.name)}" placeholder="等级名称" />
           <input type="number" class="level-coefficient" value="${level.coefficient}" min="1" step="0.01" />
           <span class="unit">倍</span>
           <button class="btn danger sm" data-action="remove-level" data-index="${index}">删除</button>
@@ -4251,10 +4166,45 @@
       showToast("已恢复默认等级");
     }
 
+    /**
+     * 一键恢复所有配置为出厂默认（纸张 / 工艺 / 吊绳 / 客户等级）。
+     * 仅清 4 个 key 的 localStorage；保留报价历史、本地快照、APP_PROFILE、个人偏好等。
+     * 用途：换设备或被旧 localStorage 污染后，一键回到 DEFAULT 状态。
+     */
+    function resetToDefaults() {
+      const confirmMsg = "将清空以下本地修改并恢复出厂默认：\n\n• 纸张配置（9 张报价表）\n• 工艺配置（含 烫金/UV/鸡眼/凹凸 等）\n• 吊绳配置\n• 客户等级\n\n报价历史与本地快照不会被删除。\n\n确定继续？";
+      if (!confirm(confirmMsg)) return;
+
+      const keysToReset = ["paperConfig", "craftConfig", "ropeConfig", "customerLevels"];
+      keysToReset.forEach(k => {
+        try { localStorage.removeItem("tagPricing_" + k); } catch (e) { /* 忽略 */ }
+      });
+
+      // 重新从 DEFAULT 派生（深拷贝，避免后续修改污染源对象）
+      PAPER_CONFIG = DEFAULT_PAPER_CONFIG.map(p => ({
+        ...p,
+        specs: p.specs.map(s => ({ ...s, prices: { ...s.prices } }))
+      }));
+      CRAFT_CONFIG = {};
+      Object.keys(DEFAULT_CRAFT_CONFIG).forEach(k => {
+        CRAFT_CONFIG[k] = DEFAULT_CRAFT_CONFIG[k].map(c => ({ ...c, prices: { ...c.prices } }));
+      });
+      ROPE_CONFIG = DEFAULT_ROPE_CONFIG.map(r => ({ ...r, prices: { ...r.prices } }));
+      CUSTOMER_LEVELS = DEFAULT_CUSTOMER_LEVELS.map(l => ({ ...l }));
+
+      rebuildPaperUI();
+      renderLevelSettings();
+      // 重新填充下拉框默认值
+      updateDefaultPaperOptions && updateDefaultPaperOptions();
+      updateDefaultRopeOptions && updateDefaultRopeOptions();
+      onCalculate();
+      showToast("已恢复默认配置（含工艺 单面/双面 后缀）");
+    }
+
     function loadProfileToUI() {
       if (els.companyName) els.companyName.value = APP_PROFILE.companyName || "";
       if (els.companyPhone) els.companyPhone.value = APP_PROFILE.companyPhone || "";
-      if (els.decimalPlaces) els.decimalPlaces.value = APP_PROFILE.decimalPlaces || 2;
+      if (els.decimalPlaces) els.decimalPlaces.value = parseDecimalPlaces(APP_PROFILE.decimalPlaces);
       updateDefaultTierOptions();
       if (els.defaultTier) els.defaultTier.value = APP_PROFILE.defaultTier || "";
       updateDefaultRopeOptions();
@@ -4291,15 +4241,16 @@
 
     function saveProfile() {
       APP_PROFILE = {
-        companyName: els.companyName.value.trim(),
-        companyPhone: els.companyPhone.value.trim(),
-        defaultTier: els.defaultTier.value,
-        defaultRope: els.defaultRope.value || "rope1",
-        defaultPaperId: els.defaultPaper.value || "",
-        decimalPlaces: parseInt(els.decimalPlaces.value, 10) || 2
+        companyName: els.companyName ? els.companyName.value.trim() : APP_PROFILE.companyName,
+        companyPhone: els.companyPhone ? els.companyPhone.value.trim() : APP_PROFILE.companyPhone,
+        defaultTier: els.defaultTier ? els.defaultTier.value : APP_PROFILE.defaultTier,
+        defaultRope: els.defaultRope ? (els.defaultRope.value || "rope1") : APP_PROFILE.defaultRope,
+        defaultPaperId: els.defaultPaper ? (els.defaultPaper.value || "") : APP_PROFILE.defaultPaperId,
+        decimalPlaces: els.decimalPlaces ? parseDecimalPlaces(els.decimalPlaces.value) : parseDecimalPlaces(APP_PROFILE.decimalPlaces)
       };
       saveToStorage("appProfile", APP_PROFILE);
-      showToast("设置已保存到本地");
+      saveToStorage("customerLevels", CUSTOMER_LEVELS);
+      showToast("设置已保存");
       onCalculate();
     }
 
@@ -4358,7 +4309,10 @@
         data: {
           customerLevels: CUSTOMER_LEVELS,
           appProfile: APP_PROFILE,
-          paperConfig: PAPER_CONFIG
+          paperConfig: PAPER_CONFIG,
+          ropeConfig: ROPE_CONFIG,
+          craftConfig: CRAFT_CONFIG,
+          shippingConfig: SHIPPING_CONFIG
         }
       });
       saveSnapshots(list);
@@ -4492,7 +4446,7 @@
 
     function exportLocalBackup() {
       const data = {
-        version: "3.3",
+        version: "4.0",
         kind: "local-backup",
         exportAt: new Date().toISOString(),
         customerLevels: CUSTOMER_LEVELS,
@@ -4500,6 +4454,7 @@
         paperConfig: PAPER_CONFIG,
         ropeConfig: ROPE_CONFIG,
         craftConfig: CRAFT_CONFIG,
+        shippingConfig: SHIPPING_CONFIG,
         snapshots: getSnapshots(),
         history: getHistory()
       };
@@ -4527,6 +4482,7 @@
           }
           if (data.appProfile) {
             APP_PROFILE = data.appProfile;
+            APP_PROFILE.decimalPlaces = parseDecimalPlaces(APP_PROFILE.decimalPlaces);
             saveToStorage("appProfile", APP_PROFILE);
           }
           if (data.paperConfig) {
@@ -4542,6 +4498,15 @@
           if (data.craftConfig) {
             CRAFT_CONFIG = data.craftConfig;
             saveToStorage("craftConfig", CRAFT_CONFIG);
+          }
+          if (data.shippingConfig) {
+            SHIPPING_CONFIG.length = 0;
+            data.shippingConfig.forEach(s => SHIPPING_CONFIG.push(s));
+            if (els.region) {
+              els.region.innerHTML = '<option value="">请选择地区</option>' +
+                SHIPPING_CONFIG.map(s => `<option value="${s.id}">${s.name}</option>`).join("");
+              if (SHIPPING_CONFIG.length > 0) els.region.value = SHIPPING_CONFIG[0].id;
+            }
           }
           if (data.snapshots) saveSnapshots(data.snapshots);
           if (data.history) saveHistory(data.history);
@@ -4568,7 +4533,7 @@
     // -------------------- 导入 / 导出完整配置 --------------------
     function exportFullData() {
       const data = {
-        version: "3.3",
+        version: "4.0",
         exportAt: new Date().toISOString(),
         customerLevels: CUSTOMER_LEVELS,
         appProfile: APP_PROFILE,
@@ -4610,6 +4575,15 @@
             CRAFT_CONFIG = data.craftConfig;
             saveToStorage("craftConfig", CRAFT_CONFIG);
           }
+          if (data.shippingConfig) {
+            SHIPPING_CONFIG.length = 0;
+            data.shippingConfig.forEach(s => SHIPPING_CONFIG.push(s));
+            if (els.region) {
+              els.region.innerHTML = '<option value="">请选择地区</option>' +
+                SHIPPING_CONFIG.map(s => `<option value="${s.id}">${s.name}</option>`).join("");
+              if (SHIPPING_CONFIG.length > 0) els.region.value = SHIPPING_CONFIG[0].id;
+            }
+          }
           if (data.snapshots) saveSnapshots(data.snapshots);
           if (data.history) saveHistory(data.history);
           renderLevelSettings();
@@ -4635,21 +4609,37 @@
 
     function paperToSheetRows(paper) {
       // 返回二维数组，按规划模板结构（含工艺区）
-      const tierKeys = Object.keys(paper.specs[0] ? paper.specs[0].prices : {});
-      const headerRow = ["代码", "最大含出血面积", ...tierKeys.map(String)];
+      // 关键：取规格档位 + 工艺档位的并集并排序，确保规格行与工艺行列宽一致
+      const specTierKeys = paper.specs.length
+        ? Object.keys(paper.specs[0].prices).map(Number)
+        : [];
+      const crafts = CRAFT_CONFIG[paper.id] || [];
+      const craftTierKeys = crafts.length
+        ? Object.keys(crafts[0].prices).map(Number)
+        : [];
+      const tierSet = new Set([...specTierKeys, ...craftTierKeys]);
+      const tierKeys = Array.from(tierSet).sort((a, b) => a - b).map(String);
+
+      const headerRow = ["代码", "最大含出血面积", ...tierKeys];
       const dataRows = paper.specs.map(spec => [
         spec.code,
         spec.maxArea,
-        ...tierKeys.map(t => spec.prices[t] ?? "")
+        ...tierKeys.map(t => {
+          // 缺值时留空（与源数据一致，不臆造 0）
+          const v = spec.prices[t];
+          return v == null ? "" : v;
+        })
       ]);
-      const crafts = CRAFT_CONFIG[paper.id] || [];
       const craftRows = crafts.length
         ? [
             [],
-            ["工艺名称", ...tierKeys.map(String)],
+            ["工艺名称", ...tierKeys],
             ...crafts.map(craft => [
               craft.name,
-              ...tierKeys.map(t => craft.prices[t] ?? "")
+              ...tierKeys.map(t => {
+                const v = craft.prices[t];
+                return v == null ? "" : v;
+              })
             ])
           ]
         : [];
@@ -4685,28 +4675,294 @@
         return;
       }
       const wb = XLSX.utils.book_new();
-      const sample = DEFAULT_PAPER_CONFIG[0];
-      if (sample) {
-        const ws = XLSX.utils.aoa_to_sheet(paperToSheetRows(sample));
-        XLSX.utils.book_append_sheet(wb, ws, "模板示例");
-      }
-      // 空白模板 Sheet（含工艺区示例）
-      const blankRows = [
-        ["报价表全称", "报价表 X：XXX克 XXX纸 工艺描述"],
-        ["简称", "XXX纸"],
-        ["折扣系数", 1],
-        ["备注", ""],
-        [],
-        ["代码", "最大含出血面积", "1000", "2000", "5000", "10000"],
-        ["002", 1999, 20, 25, 45, 90],
-        [],
-        ["工艺名称", "1000", "2000", "5000", "10000"],
-        ["无色压凹", 30, 40, 55, 90]
+
+      // === 模板 = 源 Excel 的 9 张表 1:1 还原 ===
+      // 来源：用户提供的「海洋吊牌报价表.xlsx」真实表头与工艺名（与导入端 100% 一致）。
+      // 9 张表顺序：350铜版纸 / 400铜版纸 / 702铜版纸 / 606米白卡 / 500白卡纸 / 海成专用 / 700布纹纸 / 600牛皮纸 / 40C棉麻布
+      const TEMPLATE_ROWS = [
+        // 1) 350铜版纸
+        {
+          meta: [
+            ["报价表全称", "报价表 1：350克 A级铜版纸 双面过哑胶（厚度0.38mm）"],
+            ["简称", "350铜版纸"],
+            ["折扣系数", 1],
+            ["备注", "本表暂无附加工艺"]
+          ],
+          codeHeader: ["代码", "最大含出血面积", "500", "1000", "2000", "2500", "5000", "10000", "20000", "50000"],
+          codeRows: [
+            ["002", 1999, 20, 25, 45, 50, 95, 190, 350, 800],
+            ["003", 3164, 25, 30, 55, 60, 105, 200, 400, 1000],
+            ["004", 3999, 30, 35, 65, 70, 120, 240, 480, 1150],
+            ["005", 4944, 35, 40, 75, 85, 150, 270, 530, 1300],
+            ["055", 5684, 40, 45, 85, 90, 160, 300, 580, 1400],
+            ["006", 6264, 50, 55, 95, 100, 170, 340, 660, 1600],
+            ["007", 7999, 60, 65, 120, 130, 220, 420, 820, 1900],
+            ["008", 7999, 60, 65, 120, 130, 220, 420, 820, 1900],
+            ["009", 9999, 80, 90, 160, 170, 290, 560, 1100, 2500],
+            ["100", 15999, 110, 130, 230, 250, 420, 820, 1600, 3700]
+          ],
+          craftHeader: null,
+          craftRows: []
+        },
+        // 2) 400铜版纸
+        {
+          meta: [
+            ["报价表全称", "报价表 2：400克 A级铜版纸 双面过哑胶（厚度0.45mm）"],
+            ["简称", "400铜版纸"],
+            ["折扣系数", 0.91],
+            ["备注", "工艺名带（单面）/（双面）后缀可区分；空值留空"]
+          ],
+          codeHeader: ["代码", "最大含出血面积", "1000", "2000", "3000", "4000", "5000", "10000", "20000", "30000", "50000", "100000"],
+          codeRows: [
+            ["002", 1999, 25, 45, 75, 85, 120, 210, 400, "", 900, ""],
+            ["003", 3164, 35, 55, 90, 105, 140, 240, 460, "", 1100, ""],
+            ["004", 3999, 40, 70, 105, 130, 170, 285, 550, "", 1300, ""],
+            ["005", 4944, 50, 85, 130, 160, 210, 360, 700, "", 1700, ""],
+            ["055", 5684, 60, 95, 145, 180, 240, 410, 800, "", 1900, ""],
+            ["006", 6264, 65, 105, 160, 200, 260, 440, 880, "", 2050, ""],
+            ["007", 7999, 80, 130, 195, 245, 320, 540, 1080, "", 2500, ""],
+            ["008", 7999, 80, 130, 195, 245, 320, 540, 1080, "", 2500, ""],
+            ["009", 9999, 100, 165, 245, 305, 400, 680, 1380, "", 3150, ""],
+            ["100", 15999, 145, 240, 360, 445, 580, 980, 2000, "", 4550, ""]
+          ],
+          craftHeader: ["工艺名称", "1000", "2000", "3000", "4000", "5000", "10000", "20000", "30000", "50000", "100000"],
+          craftRows: [
+            ["烫金（单面）", 90, 110, 130, 140, 160, 200, 280, 350, 450, 800],
+            ["烫金（双面）", 110, 130, 150, 160, 200, 240, 380, 500, 800, 1400],
+            ["UV", 100, 100, 130, 140, 160, 180, 240, 300, 400, 600],
+            ["鸡眼", 40, 60, 90, 120, 150, 300, 600, 800, 1300, 2500],
+            ["凹凸", 110, 120, 130, 140, 150, 200, 280, 320, 400, 500]
+          ]
+        },
+        // 3) 702铜版纸
+        {
+          meta: [
+            ["报价表全称", "报价表 3：702克 A级铜版纸 双面过哑胶（厚度0.85mm）"],
+            ["简称", "702铜版纸"],
+            ["折扣系数", 1],
+            ["备注", "附加工艺中烫金分单/双面，请分别填写"]
+          ],
+          codeHeader: ["代码", "最大含出血面积", "1000", "2000", "3000", "4000", "5000", "10000", "20000", "50000"],
+          codeRows: [
+            ["002", 1999, 35, 50, 70, 80, 90, 170, "", ""],
+            ["003", 3164, 45, 60, 85, 100, 110, 210, "", ""],
+            ["004", 3999, 55, 75, 100, 120, 135, 250, "", ""],
+            ["005", 4944, 70, 95, 130, 155, 170, 320, "", ""],
+            ["055", 5684, 80, 105, 145, 175, 195, 360, "", ""],
+            ["006", 6264, 90, 120, 165, 195, 220, 400, "", ""],
+            ["007", 7999, 110, 150, 200, 240, 270, 490, "", ""],
+            ["008", 7999, 110, 150, 200, 240, 270, 490, "", ""],
+            ["009", 9999, 145, 195, 265, 315, 355, 640, "", ""],
+            ["100", 15999, 210, 280, 380, 455, 510, 920, "", ""]
+          ],
+          craftHeader: ["工艺名称", "1000", "2000", "3000", "4000", "5000", "10000", "20000", "50000"],
+          craftRows: [
+            ["无色压凹（单面）", 50, 60, 70, 80, 90, 170, "", ""],
+            ["套字压凹（单面）", 80, 90, 100, 110, 120, 230, "", ""],
+            ["烫金 小面积（单面）", 50, 60, 70, 80, 90, 170, "", ""],
+            ["烫金 小面积（双面）", 70, 80, 90, 100, 120, 230, "", ""],
+            ["击凸（单面）", 80, 90, 100, 110, 120, 230, "", ""]
+          ]
+        },
+        // 4) 606米白卡
+        {
+          meta: [
+            ["报价表全称", "报价表 4：米白卡 606克（厚度0.8mm）"],
+            ["简称", "606米白卡"],
+            ["折扣系数", 1],
+            ["备注", "工艺分（单面）/（双面），与代码区批量档对齐"]
+          ],
+          codeHeader: ["代码", "最大含出血面积", "500", "1000", "2000", "2500", "5000", "7500", "10000", "20000", "30000", "50000"],
+          codeRows: [
+            ["002", 1999, 20, 30, 40, "", 70, "", 130, "", "", ""],
+            ["003", 3164, 25, 35, 50, "", 80, "", 150, "", "", ""],
+            ["004", 3999, 30, 40, 60, "", 90, "", 170, "", "", ""],
+            ["005", 4944, 35, 50, 70, "", 110, "", 200, "", "", ""],
+            ["055", 5684, 40, 55, 80, "", 125, "", 230, "", "", ""],
+            ["006", 6264, 45, 60, 85, "", 135, "", 250, "", "", ""],
+            ["007", 7999, 55, 75, 105, "", 165, "", 300, "", "", ""],
+            ["008", 7999, 55, 75, 105, "", 165, "", 300, "", "", ""],
+            ["009", 9999, 70, 95, 135, "", 210, "", 380, "", "", ""],
+            ["100", 15999, 100, 140, 195, "", 305, "", 555, "", "", ""]
+          ],
+          craftHeader: ["工艺名称", "500", "1000", "2000", "2500", "5000", "7500", "10000", "20000", "30000", "50000"],
+          craftRows: [
+            ["无色压凹（单面）", "", 30, 40, "", 70, "", 130, "", "", ""],
+            ["套字压凹（单面）", "", 80, 90, "", 120, "", 230, "", "", ""],
+            ["烫金 小面积（单面）", "", 50, 60, "", 90, "", 170, "", "", ""],
+            ["烫金 小面积（双面）", "", 70, 80, "", 120, "", 230, "", "", ""],
+            ["击凸（单面）", "", 80, 90, "", 120, "", 230, "", "", ""]
+          ]
+        },
+        // 5) 500白卡纸
+        {
+          meta: [
+            ["报价表全称", "报价表 5：500克 白卡纸（厚度0.55mm）正面过哑胶"],
+            ["简称", "500白卡纸"],
+            ["折扣系数", 0.75],
+            ["备注", "工艺分（单面）/（双面），按实际勾选填写"]
+          ],
+          codeHeader: ["代码", "最大含出血面积", "500", "1000", "2000", "3000", "4000", "5000", "10000", "20000", "30000", "50000"],
+          codeRows: [
+            ["002", 1999, 18, 25, 40, 50, 60, 110, 200, "", "", ""],
+            ["003", 3164, 22, 30, 50, 60, 75, 130, 240, "", "", ""],
+            ["004", 3999, 25, 35, 60, 75, 90, 155, 290, "", "", ""],
+            ["005", 4944, 30, 45, 70, 90, 110, 195, 360, "", "", ""],
+            ["055", 5684, 35, 50, 80, 100, 120, 215, 400, "", "", ""],
+            ["006", 6264, 40, 55, 90, 110, 130, 230, 430, "", "", ""],
+            ["007", 7999, 50, 70, 110, 135, 160, 290, 530, "", "", ""],
+            ["008", 7999, 50, 70, 110, 135, 160, 290, 530, "", "", ""],
+            ["009", 9999, 65, 90, 140, 170, 200, 360, 660, "", "", ""],
+            ["100", 15999, 90, 130, 200, 245, 290, 520, 960, "", "", ""]
+          ],
+          craftHeader: ["工艺名称", "500", "1000", "2000", "2500", "5000", "7500", "10000", "20000", "30000", "50000"],
+          craftRows: [
+            ["无色压凹（单面）", "", 30, 40, "", 70, "", 130, "", "", ""],
+            ["套字压凹（单面）", "", 80, 90, "", 120, "", 230, "", "", ""],
+            ["烫金 小面积（单面）", "", 50, 60, "", 90, "", 170, "", "", ""],
+            ["烫金 小面积（双面）", "", 70, 80, "", 120, "", 230, "", "", ""],
+            ["击凸（单面）", "", 80, 90, "", 120, "", 230, "", "", ""]
+          ]
+        },
+        // 6) 海成专用
+        {
+          meta: [
+            ["报价表全称", "报价表 6：400克米白卡 / 160克半透卡 / 200克合成纸（海成专用 / 撕不烂）"],
+            ["简称", "海成专用"],
+            ["折扣系数", 0.75],
+            ["备注", "鸡眼工艺分（单面）/（对折两张），请按工艺分别报价"]
+          ],
+          codeHeader: ["代码", "最大含出血面积", "1000", "2000", "3000", "4000", "5000", "10000", "20000"],
+          codeRows: [
+            ["002", 1999, 30, 45, 65, 80, 95, 170, ""],
+            ["003", 3164, 35, 55, 80, 95, 115, 210, ""],
+            ["004", 3999, 45, 65, 95, 115, 135, 250, ""],
+            ["005", 4944, 55, 85, 120, 145, 170, 310, ""],
+            ["055", 5684, 65, 95, 135, 165, 195, 350, ""],
+            ["006", 6264, 70, 105, 150, 180, 215, 385, ""],
+            ["007", 7999, 85, 125, 175, 215, 255, 455, ""],
+            ["008", 7999, 85, 125, 175, 215, 255, 455, ""],
+            ["009", 9999, 110, 160, 225, 275, 325, 580, ""],
+            ["100", 15999, 160, 230, 325, 395, 470, 835, ""]
+          ],
+          craftHeader: ["工艺名称", "1000", "2000", "3000", "4000", "5000", "10000", "20000"],
+          craftRows: [
+            ["烫金 小面积（单面）", 50, 60, 70, 80, 90, 170, ""],
+            ["烫金 小面积（双面）", 70, 80, 90, 100, 120, 230, ""],
+            ["鸡眼（单面）", 40, 60, 90, 120, 150, 300, ""],
+            ["鸡眼 （对折两张）", 60, 120, 180, 240, 300, 550, ""]
+          ]
+        },
+        // 7) 700布纹纸
+        {
+          meta: [
+            ["报价表全称", "报价表 7：700克 A级布纹纸 双面过光油（厚度0.85mm）"],
+            ["简称", "700布纹纸"],
+            ["折扣系数", 1],
+            ["备注", "烫金小面积后缀（单面）/（双面）必须保留"]
+          ],
+          codeHeader: ["代码", "最大含出血面积", "1000", "2000", "3000", "4000", "5000", "10000", "20000"],
+          codeRows: [
+            ["002", 1999, 30, 45, 65, 80, 95, 170, ""],
+            ["003", 3164, 35, 55, 80, 95, 115, 210, ""],
+            ["004", 3999, 45, 65, 95, 115, 135, 250, ""],
+            ["005", 4944, 55, 85, 120, 145, 170, 310, ""],
+            ["055", 5684, 65, 95, 135, 165, 195, 350, ""],
+            ["006", 6264, 70, 105, 150, 180, 215, 385, ""],
+            ["007", 7999, 85, 125, 175, 215, 255, 455, ""],
+            ["008", 7999, 85, 125, 175, 215, 255, 455, ""],
+            ["009", 9999, 110, 160, 225, 275, 325, 580, ""],
+            ["100", 15999, 160, 230, 325, 395, 470, 835, ""]
+          ],
+          craftHeader: ["工艺名称", "1000", "2000", "3000", "4000", "5000", "10000", "20000"],
+          craftRows: [
+            ["烫金小面积(单面）", 90, 110, 130, 140, 160, 200, ""],
+            ["烫金小面积(双面）", 110, 130, 150, 160, 200, 240, ""],
+            ["凹凸", 110, 120, 130, 140, 150, 200, ""],
+            ["鸡眼", 40, 60, 90, 120, 150, 300, ""],
+            ["无色压凹（单面）", 110, 120, 130, 140, 150, 200, ""],
+            ["深凹烫金（单面）", 110, 120, 130, 140, 150, 200, ""]
+          ]
+        },
+        // 8) 600牛皮纸
+        {
+          meta: [
+            ["报价表全称", "报价表 8：600克 A级牛皮纸（厚度0.80mm）"],
+            ["简称", "600牛皮纸"],
+            ["折扣系数", 0.75],
+            ["备注", "烫金与丝印白均区分（单面）/（双面）"]
+          ],
+          codeHeader: ["代码", "最大含出血面积", "1000", "2000", "3000", "4000", "5000", "10000", "20000"],
+          codeRows: [
+            ["002", 1999, 25, 40, 55, 65, 80, 150, ""],
+            ["003", 3164, 30, 50, 70, 80, 100, 180, ""],
+            ["004", 3999, 35, 60, 85, 95, 120, 215, ""],
+            ["005", 4944, 45, 75, 105, 120, 150, 270, ""],
+            ["055", 5684, 50, 85, 120, 135, 170, 305, ""],
+            ["006", 6264, 55, 95, 130, 150, 185, 335, ""],
+            ["007", 7999, 70, 115, 155, 180, 220, 395, ""],
+            ["008", 7999, 70, 115, 155, 180, 220, 395, ""],
+            ["009", 9999, 90, 145, 200, 230, 280, 505, ""],
+            ["100", 15999, 130, 210, 290, 335, 405, 725, ""]
+          ],
+          craftHeader: ["工艺名称", "1000", "2000", "3000", "4000", "5000", "10000", "20000"],
+          craftRows: [
+            ["烫金 小面积（单面）", 50, 60, 70, 80, 90, 170, ""],
+            ["烫金 小面积（双面）", 70, 80, 90, 100, 120, 230, ""],
+            ["凹凸", 80, 90, 100, 110, 120, 230, ""],
+            ["鸡眼", 40, 60, 90, 120, 150, 300, ""],
+            ["丝印白（单面）", 30, 40, 50, 60, 70, 130, ""],
+            ["丝印白（双面）", 50, 60, 70, 90, 90, 160, ""]
+          ]
+        },
+        // 9) 40C棉麻布
+        {
+          meta: [
+            ["报价表全称", "报价表 9：棉麻布 40C 米白色"],
+            ["简称", "40C棉麻布"],
+            ["折扣系数", 0.75],
+            ["备注", "工艺均为（单面），单列一栏；如无双面请留空对应行"]
+          ],
+          codeHeader: ["代码", "最大含出血面积", "1000", "2000", "3000", "4000", "5000", "10000"],
+          codeRows: [
+            ["002", 1999, 25, 40, 60, 75, 90, 160],
+            ["003", 3164, 30, 50, 75, 90, 110, 200],
+            ["004", 3999, 35, 60, 90, 110, 130, 240],
+            ["005", 4944, 45, 75, 110, 135, 160, 290],
+            ["055", 5684, 50, 85, 125, 155, 180, 330],
+            ["006", 6264, 55, 95, 135, 170, 195, 360],
+            ["007", 7999, 70, 115, 165, 205, 235, 430],
+            ["008", 7999, 70, 115, 165, 205, 235, 430],
+            ["009", 9999, 90, 145, 215, 260, 300, 545],
+            ["100", 15999, 130, 210, 310, 380, 435, 790]
+          ],
+          craftHeader: ["工艺名称", "1000", "2000", "3000", "4000", "5000", "10000"],
+          craftRows: [
+            ["专色（单面）", 90, 120, 150, 180, 200, 300],
+            ["黑白图案（单面）", 30, 50, 70, 90, 120, 200],
+            ["红色（单面）", 30, 50, 70, 90, 120, 200]
+          ]
+        }
       ];
-      const blankWs = XLSX.utils.aoa_to_sheet(blankRows);
-      XLSX.utils.book_append_sheet(wb, blankWs, "空白模板");
+
+      // 将「代码 + 工艺 + 单/双面」注入到每张表，sheet 命名为简称
+      TEMPLATE_ROWS.forEach((t) => {
+        const rows = [];
+        t.meta.forEach((m) => rows.push(m));
+        rows.push([]);
+        rows.push(t.codeHeader);
+        t.codeRows.forEach((r) => rows.push(r));
+        if (t.craftHeader) {
+          rows.push([]);
+          rows.push(t.craftHeader);
+          t.craftRows.forEach((r) => rows.push(r));
+        }
+        const ws = XLSX.utils.aoa_to_sheet(rows);
+        XLSX.utils.book_append_sheet(wb, ws, t.meta[1][1] || ("Sheet" + (TEMPLATE_ROWS.indexOf(t) + 1)));
+      });
+
       XLSX.writeFile(wb, "海洋吊牌报价表模板_" + formatDateFile() + ".xlsx");
-      showToast("模板已下载");
+      showToast("模板已下载（9张表1:1，含单/双面工艺）");
     }
 
     function parsePaperExcel(arrayBuffer) {
@@ -4781,6 +5037,8 @@
         for (let r = headerRowIndex + 1; r < rows.length; r++) {
           const row = rows[r];
           if (!row || !row.length) continue;
+          // 遇到「工艺名称」标题即停止代码区（与下方工艺读取自然衔接）
+          if (String(row[0] || "").trim() === "工艺名称") break;
           const code = String(row[0] || "").trim();
           if (!code) continue;
           if (seenCodes.has(code)) {
@@ -4798,12 +5056,17 @@
           for (let i = 0; i < tierKeys.length; i++) {
             const tier = tierKeys[i];
             const val = row[2 + i];
-            const price = val === "" || val == null ? 0 : Number(val);
-            if (isNaN(price)) {
-              errors.push(`「${sheetName}」${code} 的 ${tier} 档价格无效，已按 0 处理`);
-              prices[tier] = 0;
+            if (val === "" || val == null) {
+              // 数据源没有该批量价格 -> 保留 null（占位，UI 显示"无该批量定价"）
+              prices[tier] = null;
             } else {
-              prices[tier] = price;
+              const price = Number(val);
+              if (isNaN(price)) {
+                errors.push(`「${sheetName}」${code} 的 ${tier} 档价格无效，已按占位处理`);
+                prices[tier] = null;
+              } else {
+                prices[tier] = price;
+              }
             }
           }
           specs.push({ code, maxArea, prices });
@@ -4847,12 +5110,17 @@
             for (let i = 0; i < tierKeys.length; i++) {
               const tier = tierKeys[i];
               const val = row[1 + i];
-              const price = val === "" || val == null ? 0 : Number(val);
-              if (isNaN(price)) {
-                errors.push(`「${sheetName}」工艺「${craftName}」的 ${tier} 档价格无效，已按 0 处理`);
-                prices[tier] = 0;
+              if (val === "" || val == null) {
+                // 数据源没有该工艺批量价格 -> 占位
+                prices[tier] = null;
               } else {
-                prices[tier] = price;
+                const price = Number(val);
+                if (isNaN(price)) {
+                  errors.push(`「${sheetName}」工艺「${craftName}」的 ${tier} 档价格无效，已按占位处理`);
+                  prices[tier] = null;
+                } else {
+                  prices[tier] = price;
+                }
               }
             }
             crafts.push({ id: `craft${paperNum}_${crafts.length + 1}`, name: craftName, prices });
@@ -4917,10 +5185,13 @@
     function rebuildPaperUI() {
       // 重建纸张选择 UI、纸张设置列表、报价表查询页
       currentPaperIndex = Math.min(currentPaperIndex, Math.max(0, PAPER_CONFIG.length - 1));
-      // 重置纸张设置，默认使用第一张纸
+      // 重置纸张设置，保留尺寸数据，默认使用第一张纸
       sheetsState = sheetsState.map(s => ({
         paperId: PAPER_CONFIG.find(p => p.id === s.paperId) ? s.paperId : PAPER_CONFIG[0].id,
-        craftIds: []
+        craftIds: [],
+        width: s.width || "",
+        length: s.length || "",
+        sizeType: s.sizeType || "custom"
       }));
       updateTierOptions(false);
       renderSheets();
@@ -5089,6 +5360,163 @@
       els.rope.innerHTML = renderRopeRadios();
     }
 
+    // -------------------- 邮费 Excel 导入 / 导出 / 模板 --------------------
+
+    function setShippingExcelStatus(html, isError) {
+      if (!els.shippingExcelImportStatus) return;
+      els.shippingExcelImportStatus.innerHTML = html;
+      els.shippingExcelImportStatus.style.color = isError ? "var(--danger)" : "var(--text-secondary)";
+    }
+
+    function shippingToSheetRows() {
+      const tierKeys = SHIPPING_CONFIG.length ? Object.keys(SHIPPING_CONFIG[0].basePrices) : [];
+      const headerRow = ["地区名称", ...tierKeys.map(String), "小面积折扣阈值", "折扣系数"];
+      const dataRows = SHIPPING_CONFIG.map(region => [
+        region.name,
+        ...tierKeys.map(t => region.basePrices[t] ?? ""),
+        region.smallAreaThreshold,
+        region.discount
+      ]);
+      return [headerRow, ...dataRows];
+    }
+
+    function exportShippingExcel() {
+      if (typeof XLSX === "undefined") {
+        showToast("Excel 库未加载，请检查网络");
+        return;
+      }
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet(shippingToSheetRows());
+      XLSX.utils.book_append_sheet(wb, ws, "邮费报价");
+      XLSX.writeFile(wb, "海洋吊牌邮费报价_" + formatDateFile() + ".xlsx");
+      showToast("邮费报价 Excel 已导出");
+    }
+
+    function downloadShippingTemplate() {
+      if (typeof XLSX === "undefined") {
+        showToast("Excel 库未加载，请检查网络");
+        return;
+      }
+      const sample = DEFAULT_SHIPPING_CONFIG[0];
+      const tierKeys = sample ? Object.keys(sample.basePrices) : ["500", "1000", "2000", "3000", "5000"];
+      const rows = [
+        ["地区名称", ...tierKeys.map(String), "小面积折扣阈值", "折扣系数"],
+        ["广东省内", ...tierKeys.map(t => sample ? sample.basePrices[t] : 0), 2500, 0.8],
+        ["江浙沪", ...tierKeys.map(() => 0), 2500, 0.8],
+        ["其他省份", ...tierKeys.map(() => 0), 2500, 0.8]
+      ];
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "邮费报价模板");
+      XLSX.writeFile(wb, "海洋吊牌邮费报价模板_" + formatDateFile() + ".xlsx");
+      showToast("邮费模板已下载");
+    }
+
+    function parseShippingExcel(arrayBuffer) {
+      if (typeof XLSX === "undefined") {
+        throw new Error("Excel 库未加载，请检查网络");
+      }
+      const wb = XLSX.read(new Uint8Array(arrayBuffer), { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      if (!ws) throw new Error("Excel 没有工作表");
+
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+      if (!rows.length) throw new Error("工作表为空");
+
+      const headerRow = rows[0];
+      // 解析档位列（第2列起到倒数第2列），最后两列是阈值和折扣
+      const tierKeys = [];
+      for (let c = 1; c < headerRow.length - 2; c++) {
+        const val = headerRow[c];
+        if (val !== "" && !isNaN(Number(val)) && Number(val) > 0) {
+          tierKeys.push(String(Number(val)));
+        }
+      }
+      if (!tierKeys.length) throw new Error("未找到档位列，表头第 2 列起应为数字档位");
+
+      const regions = [];
+      const errors = [];
+
+      for (let r = 1; r < rows.length; r++) {
+        const row = rows[r];
+        if (!row || !row.length) continue;
+        const name = String(row[0] || "").trim();
+        if (!name) continue;
+
+        const basePrices = {};
+        for (let i = 0; i < tierKeys.length; i++) {
+          const tier = tierKeys[i];
+          const val = row[1 + i];
+          const price = val === "" || val == null ? 0 : Number(val);
+          if (isNaN(price)) {
+            errors.push(`「${name}」的 ${tier} 档价格无效，已按 0 处理`);
+            basePrices[tier] = 0;
+          } else {
+            basePrices[tier] = price;
+          }
+        }
+
+        // 解析最后两列：小面积折扣阈值、折扣系数
+        const thresholdIdx = 1 + tierKeys.length;
+        const discountIdx = thresholdIdx + 1;
+        const threshold = row[thresholdIdx] !== "" && row[thresholdIdx] != null
+          ? Number(row[thresholdIdx]) : 2500;
+        const discount = row[discountIdx] !== "" && row[discountIdx] != null
+          ? Number(row[discountIdx]) : 0.8;
+        if (isNaN(threshold)) errors.push(`「${name}」的折扣阈值无效，已按 2500 处理`);
+        if (isNaN(discount)) errors.push(`「${name}」的折扣系数无效，已按 0.8 处理`);
+
+        regions.push({
+          id: "region" + (regions.length + 1),
+          name,
+          basePrices,
+          smallAreaThreshold: isNaN(threshold) ? 2500 : threshold,
+          discount: isNaN(discount) ? 0.8 : discount
+        });
+      }
+
+      if (!regions.length) throw new Error("没有可导入的邮费配置");
+      return { regions, errors };
+    }
+
+    function importShippingExcel(file) {
+      if (!file) return;
+      if (typeof XLSX === "undefined") {
+        setShippingExcelStatus("Excel 库未加载，请检查网络", true);
+        showToast("Excel 库未加载");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = e => {
+        try {
+          const { regions, errors } = parseShippingExcel(e.target.result);
+          // 直接替换 SHIPPING_CONFIG 的内容（保持引用不变）
+          SHIPPING_CONFIG.length = 0;
+          regions.forEach(r => SHIPPING_CONFIG.push(r));
+          // 重新渲染地区下拉
+          if (els.region) {
+            els.region.innerHTML = '<option value="">请选择地区</option>' +
+              SHIPPING_CONFIG.map(s => `<option value="${s.id}">${s.name}</option>`).join("");
+            if (SHIPPING_CONFIG.length > 0) els.region.value = SHIPPING_CONFIG[0].id;
+          }
+          onCalculate();
+          const successMsg = `成功导入 ${regions.length} 个地区的邮费：${regions.map(r => r.name).join("、")}`;
+          const errMsg = errors.length ? `<br><span style="color:var(--danger)">警告：${errors.join("；")}</span>` : "";
+          setShippingExcelStatus(successMsg + errMsg, false);
+          showToast("邮费 Excel 导入成功");
+        } catch (err) {
+          setShippingExcelStatus("导入失败：" + err.message, true);
+          showToast("邮费 Excel 导入失败");
+        }
+        if (els.importShippingExcelFile) els.importShippingExcelFile.value = "";
+      };
+      reader.onerror = () => {
+        setShippingExcelStatus("文件读取失败", true);
+        if (els.importShippingExcelFile) els.importShippingExcelFile.value = "";
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
     // -------------------- 页面切换增强 --------------------
     function switchPage(pageName) {
       els.navBtns.forEach(btn => {
@@ -5114,26 +5542,26 @@
       });
 
       [els.tier, els.region].forEach(el => {
-        el.addEventListener("input", onCalculate);
+        if (!el) return;
         el.addEventListener("change", onCalculate);
       });
-      els.rope.querySelectorAll('input[name="rope"]').forEach(radio => {
-        radio.addEventListener("change", onCalculate);
-      });
+      if (els.rope) {
+        els.rope.querySelectorAll('input[name="rope"]').forEach(radio => {
+          radio.addEventListener("change", onCalculate);
+        });
+      }
 
       // 纸张数量变化时重渲染纸张卡片再计算
-      els.sheetCount.addEventListener("input", () => {
-        renderSheets();
-        onCalculate();
-      });
-      els.sheetCount.addEventListener("change", () => {
-        renderSheets();
-        onCalculate();
-      });
+      if (els.sheetCount) {
+        els.sheetCount.addEventListener("input", () => {
+          renderSheets();
+          onCalculate();
+        });
+      }
 
-      els.searchInput.addEventListener("input", renderPriceTable);
-      els.prevPaper.addEventListener("click", prevPaper);
-      els.nextPaper.addEventListener("click", nextPaper);
+      if (els.searchInput) els.searchInput.addEventListener("input", renderPriceTable);
+      if (els.prevPaper) els.prevPaper.addEventListener("click", prevPaper);
+      if (els.nextPaper) els.nextPaper.addEventListener("click", nextPaper);
 
       // 个人主页事件
       if (els.addLevelBtn) els.addLevelBtn.addEventListener("click", addCustomerLevel);
@@ -5141,8 +5569,24 @@
       if (els.saveProfileBtn) els.saveProfileBtn.addEventListener("click", saveProfile);
       if (els.exportProfileBtn) els.exportProfileBtn.addEventListener("click", exportProfile);
 
+      // 报价小数位数：实时保存并立即重算
+      if (els.decimalPlaces) {
+        els.decimalPlaces.addEventListener("input", () => {
+          APP_PROFILE.decimalPlaces = parseDecimalPlaces(els.decimalPlaces.value);
+          saveToStorage("appProfile", APP_PROFILE);
+          onCalculate();
+        });
+        els.decimalPlaces.addEventListener("change", () => {
+          APP_PROFILE.decimalPlaces = parseDecimalPlaces(els.decimalPlaces.value);
+          els.decimalPlaces.value = APP_PROFILE.decimalPlaces;
+          saveToStorage("appProfile", APP_PROFILE);
+          onCalculate();
+          showToast("小数位数已更新为 " + APP_PROFILE.decimalPlaces + " 位");
+        });
+      }
+
       // 数据管理标签页
-      els.tabs.forEach(tab => {
+      if (els.tabs) els.tabs.forEach(tab => {
         tab.addEventListener("click", () => switchTab(tab.dataset.tab));
       });
 
@@ -5150,6 +5594,7 @@
       if (els.exportDataBtn) els.exportDataBtn.addEventListener("click", exportFullData);
       if (els.importDataBtn) els.importDataBtn.addEventListener("click", () => els.importFile.click());
       if (els.importFile) els.importFile.addEventListener("change", e => importFullData(e.target.files[0]));
+      if (els.resetToDefaultsBtn) els.resetToDefaultsBtn.addEventListener("click", resetToDefaults);
       if (els.exportLocalBackupBtn) els.exportLocalBackupBtn.addEventListener("click", exportLocalBackup);
       if (els.importLocalBackupBtn) els.importLocalBackupBtn.addEventListener("click", () => els.importLocalBackupFile.click());
       if (els.importLocalBackupFile) els.importLocalBackupFile.addEventListener("change", e => importLocalBackup(e.target.files[0]));
@@ -5161,6 +5606,10 @@
       if (els.importRopeExcelBtn) els.importRopeExcelBtn.addEventListener("click", () => els.importRopeExcelFile.click());
       if (els.importRopeExcelFile) els.importRopeExcelFile.addEventListener("change", e => importRopeExcel(e.target.files[0]));
       if (els.downloadRopeTemplateBtn) els.downloadRopeTemplateBtn.addEventListener("click", downloadRopeTemplate);
+      if (els.exportShippingExcelBtn) els.exportShippingExcelBtn.addEventListener("click", exportShippingExcel);
+      if (els.importShippingExcelBtn) els.importShippingExcelBtn.addEventListener("click", () => els.importShippingExcelFile.click());
+      if (els.importShippingExcelFile) els.importShippingExcelFile.addEventListener("change", e => importShippingExcel(e.target.files[0]));
+      if (els.downloadShippingTemplateBtn) els.downloadShippingTemplateBtn.addEventListener("click", downloadShippingTemplate);
       if (els.createSnapshotBtn) els.createSnapshotBtn.addEventListener("click", createSnapshot);
       if (els.clearSnapshotBtn) els.clearSnapshotBtn.addEventListener("click", clearSnapshots);
       if (els.addHistoryPlaceholderBtn) els.addHistoryPlaceholderBtn.addEventListener("click", addHistoryPlaceholder);
@@ -5168,34 +5617,58 @@
 
       // 点击页面其他区域关闭纸张材质下拉
       document.addEventListener("click", () => closeAllPaperDropdowns());
+
+      // 禁用所有 number 类型输入框的鼠标滚轮调整，防止误操作
+      document.addEventListener("wheel", e => {
+        if (e.target && e.target.type === "number") {
+          e.preventDefault();
+          e.target.blur();
+        }
+      }, { passive: false });
     }
 
     // -------------------- 启动 --------------------
-    initOptions();
-    updateDefaultTierOptions();
-    renderSheets();
-    bindEvents();
-    clearResult();
-    loadProfileToUI();
-    renderLevelSettings();
-    renderSnapshots();
-    renderHistory();
+    // 兜底：任何 init 步骤失败不影响其他步骤，错误会显示在控制台
+    (function safeInit() {
+      const steps = [
+        ["initOptions", initOptions],
+        ["updateDefaultTierOptions", updateDefaultTierOptions],
+        ["renderSheets", renderSheets],
+        ["bindEvents", bindEvents],
+        ["clearResult", clearResult],
+        ["loadProfileToUI", loadProfileToUI],
+        ["renderLevelSettings", renderLevelSettings],
+        ["renderSnapshots", renderSnapshots],
+        ["renderHistory", renderHistory]
+      ];
+      steps.forEach(([name, fn]) => {
+        try { if (typeof fn === "function") fn(); }
+        catch (e) { console.error(`[init] ${name} 失败:`, e); }
+      });
 
-    // 应用个人主页的默认档位设置
-    if (APP_PROFILE.defaultTier && els.tier) {
-      const tierExists = Array.from(els.tier.options).some(o => o.value === String(APP_PROFILE.defaultTier));
-      if (tierExists) els.tier.value = String(APP_PROFILE.defaultTier);
-    }
+      // 应用个人主页的默认档位设置
+      try {
+        if (APP_PROFILE.defaultTier && els.tier) {
+          const tierExists = Array.from(els.tier.options).some(o => o.value === String(APP_PROFILE.defaultTier));
+          if (tierExists) els.tier.value = String(APP_PROFILE.defaultTier);
+        }
+      } catch (e) { console.error("[init] 默认档位失败:", e); }
 
-    // 应用个人主页的默认纸张材质设置
-    if (APP_PROFILE.defaultPaperId) {
-      const idx = PAPER_CONFIG.findIndex(p => p.id === APP_PROFILE.defaultPaperId);
-      if (idx >= 0) {
-        currentPaperIndex = idx;
-        if (typeof updatePaperUI === "function") updatePaperUI();
-        else if (typeof renderPaper === "function") renderPaper();
-      }
-    }
+      // 应用个人主页的默认纸张材质设置
+      try {
+        if (APP_PROFILE.defaultPaperId) {
+          const idx = PAPER_CONFIG.findIndex(p => p.id === APP_PROFILE.defaultPaperId);
+          if (idx >= 0) {
+            currentPaperIndex = idx;
+            renderPriceTable();
+          }
+        }
+      } catch (e) { console.error("[init] 默认纸张失败:", e); }
+
+      // 初始化完成后触发一次计算，确保页面有结果显示
+      try { onCalculate(); }
+      catch (e) { console.error("[init] onCalculate 失败:", e); }
+    })();
   </script>
-</body>
-</html>
+
+</body></html>

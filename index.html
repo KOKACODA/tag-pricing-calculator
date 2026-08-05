@@ -2,6 +2,8 @@
 <html lang="zh-CN"><head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <meta name="googlebot" content="noindex, nofollow">
   <title>海洋吊牌报价系统 v4.0</title>
   <script>
     // 加载失败的全局错误兜底，避免单个脚本失败阻塞整个页面
@@ -1032,6 +1034,48 @@
         flex-direction: column;
       }
     }
+
+    /* 更新日志弹窗 */
+    .changelog-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+    .changelog-overlay.show { display: flex; }
+    .changelog-dialog {
+      background: var(--bg2, #fff);
+      border-radius: 14px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+      max-width: 480px;
+      width: 90%;
+      max-height: 70vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .changelog-header {
+      padding: 18px 24px;
+      border-bottom: 1px solid var(--rule, #e2e8f0);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .changelog-header h3 { font-size: 17px; color: var(--accent-dark, #0a4f8a); margin: 0; }
+    .changelog-close {
+      background: none; border: none; font-size: 22px; cursor: pointer;
+      color: var(--muted, #6b7280); padding: 0; line-height: 1;
+    }
+    .changelog-close:hover { color: var(--danger, #dc2626); }
+    .changelog-body { padding: 16px 24px; overflow-y: auto; }
+    .changelog-item { padding: 10px 0; border-bottom: 1px solid var(--rule, #e2e8f0); }
+    .changelog-item:last-child { border-bottom: none; }
+    .changelog-ver { font-weight: 700; color: var(--accent, #0f6fc4); font-size: 14px; }
+    .changelog-date { font-size: 12px; color: var(--muted, #6b7280); margin-left: 8px; }
+    .changelog-desc { font-size: 13px; color: var(--ink, #1f2937); margin-top: 4px; line-height: 1.5; }
   </style>
 </head>
 <body>
@@ -1813,11 +1857,31 @@
             <span class="placeholder-badge">本地</span>
           </div>
         </div>
+        <div class="setting-row">
+          <div class="setting-info">
+            <div class="setting-label">更新日志</div>
+            <div class="setting-desc">查看版本更新记录</div>
+          </div>
+          <div class="setting-control">
+            <button class="btn btn-secondary" onclick="showChangelog()" style="padding:6px 16px;font-size:13px;border-radius:8px;border:1px solid var(--rule,#dbe4f0);background:var(--accent-light,#e8f2fb);color:var(--accent-dark,#0a4f8a);cursor:pointer;">查看</button>
+          </div>
+        </div>
       </div>
     </section>
 
     <!-- 页面4：数据管理 + 页面5：更多 已合并到 个人主页（page-profile）中 -->
   </main>
+
+  <!-- 更新日志弹窗 -->
+  <div class="changelog-overlay" id="changelogOverlay" onclick="if(event.target===this)hideChangelog()">
+    <div class="changelog-dialog">
+      <div class="changelog-header">
+        <h3>更新日志</h3>
+        <button class="changelog-close" onclick="hideChangelog()">&times;</button>
+      </div>
+      <div class="changelog-body" id="changelogBody"></div>
+    </div>
+  </div>
 
   <!-- 提示条 -->
   <div class="toast" id="toast"></div>
@@ -3979,6 +4043,35 @@
       toastTimer = setTimeout(() => {
         els.toast.classList.remove("show");
       }, 3000);
+    }
+
+    // ============================================================
+    // ===================== 更新日志（v4.0 起） ====================
+    // ============================================================
+    // 每次版本更新在此追加一条，最多保留最近 8 条
+    const CHANGELOG = [
+      { ver: "v4.0", date: "2026-08-05", desc: "删除TRAE CSS污染(1213行)、修复XSS防护/快照数据不完整/小数位硬编码/事件重复绑定/死函数清理" },
+      { ver: "v3.9", date: "2026-08-04", desc: "修复小数位数0值导致NaN崩溃、引入parseDecimalPlaces安全解析" },
+      { ver: "v3.8", date: "2026-08-04", desc: "禁用数字输入框滚轮调数、增加邮费Excel导入导出功能" },
+      { ver: "v3.4", date: "2026-08-03", desc: "初始版本，基础报价计算+Excel导入导出+Cloudflare Pages部署" }
+    ];
+
+    function showChangelog() {
+      const body = document.getElementById("changelogBody");
+      if (!body) return;
+      body.innerHTML = CHANGELOG.map(function(item) {
+        return '<div class="changelog-item">' +
+          '<span class="changelog-ver">' + escapeHtml(item.ver) + '</span>' +
+          '<span class="changelog-date">' + escapeHtml(item.date) + '</span>' +
+          '<div class="changelog-desc">' + escapeHtml(item.desc) + '</div>' +
+        '</div>';
+      }).join("");
+      document.getElementById("changelogOverlay").classList.add("show");
+    }
+
+    function hideChangelog() {
+      var overlay = document.getElementById("changelogOverlay");
+      if (overlay) overlay.classList.remove("show");
     }
 
     // ============================================================

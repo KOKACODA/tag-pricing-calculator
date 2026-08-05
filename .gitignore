@@ -10,3 +10,5 @@ node_modules/
 # tag-pricing-calculator-v2.*.html
 # tag-pricing-calculator-v3.0.html
 # tag-pricing-calculator-v3.1.html
+.screenshots/
+.trae-html-share-packages/
