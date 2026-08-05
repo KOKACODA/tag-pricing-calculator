@@ -2,7 +2,7 @@
 <html lang="zh-CN" data-theme="light" data-trae-theme="dark"><head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>海洋吊牌报价系统 v3.8</title>
+  <title>海洋吊牌报价系统 v3.9</title>
   <script>
     // 加载失败的全局错误兜底，避免单个脚本失败阻塞整个页面
     window.addEventListener('error', function(e) {
@@ -3010,7 +3010,7 @@
         <div class="setting-row">
           <div class="setting-info">
             <div class="setting-label">当前版本</div>
-            <div class="setting-desc">海洋吊牌报价系统 v3.8</div>
+            <div class="setting-desc">海洋吊牌报价系统 v3.9</div>
           </div>
           <div class="setting-control">
             <span class="placeholder-badge">正式版</span>
@@ -4503,12 +4503,19 @@
     // ============================================================
 
     /**
-     * 金额格式化：保留两位小数。
+     * 安全解析小数位数：0 有效，NaN/空值回退 2，范围 0-4。
+     */
+    function parseDecimalPlaces(val) {
+      const n = parseInt(val, 10);
+      return isNaN(n) ? 2 : Math.max(0, Math.min(4, n));
+    }
+
+    /**
+     * 金额格式化：按 APP_PROFILE.decimalPlaces 保留小数。
      */
     function formatMoney(value) {
       if (typeof value !== "number" || isNaN(value)) return "-";
-      const decimals = Math.max(0, Math.min(4, parseInt(APP_PROFILE.decimalPlaces, 10) ?? 2));
-      return value.toFixed(decimals);
+      return value.toFixed(parseDecimalPlaces(APP_PROFILE.decimalPlaces));
     }
 
     /**
@@ -5336,7 +5343,7 @@
     function loadProfileToUI() {
       if (els.companyName) els.companyName.value = APP_PROFILE.companyName || "";
       if (els.companyPhone) els.companyPhone.value = APP_PROFILE.companyPhone || "";
-      if (els.decimalPlaces) els.decimalPlaces.value = APP_PROFILE.decimalPlaces ?? 2;
+      if (els.decimalPlaces) els.decimalPlaces.value = parseDecimalPlaces(APP_PROFILE.decimalPlaces);
       updateDefaultTierOptions();
       if (els.defaultTier) els.defaultTier.value = APP_PROFILE.defaultTier || "";
       updateDefaultRopeOptions();
@@ -5378,7 +5385,7 @@
         defaultTier: els.defaultTier ? els.defaultTier.value : APP_PROFILE.defaultTier,
         defaultRope: els.defaultRope ? (els.defaultRope.value || "rope1") : APP_PROFILE.defaultRope,
         defaultPaperId: els.defaultPaper ? (els.defaultPaper.value || "") : APP_PROFILE.defaultPaperId,
-        decimalPlaces: els.decimalPlaces ? (parseInt(els.decimalPlaces.value, 10) ?? 2) : (APP_PROFILE.decimalPlaces ?? 2)
+        decimalPlaces: els.decimalPlaces ? parseDecimalPlaces(els.decimalPlaces.value) : parseDecimalPlaces(APP_PROFILE.decimalPlaces)
       };
       saveToStorage("appProfile", APP_PROFILE);
       saveToStorage("customerLevels", CUSTOMER_LEVELS);
@@ -5575,7 +5582,7 @@
 
     function exportLocalBackup() {
       const data = {
-        version: "3.8",
+        version: "3.9",
         kind: "local-backup",
         exportAt: new Date().toISOString(),
         customerLevels: CUSTOMER_LEVELS,
@@ -5610,6 +5617,7 @@
           }
           if (data.appProfile) {
             APP_PROFILE = data.appProfile;
+            APP_PROFILE.decimalPlaces = parseDecimalPlaces(APP_PROFILE.decimalPlaces);
             saveToStorage("appProfile", APP_PROFILE);
           }
           if (data.paperConfig) {
@@ -5651,7 +5659,7 @@
     // -------------------- 导入 / 导出完整配置 --------------------
     function exportFullData() {
       const data = {
-        version: "3.8",
+        version: "3.9",
         exportAt: new Date().toISOString(),
         customerLevels: CUSTOMER_LEVELS,
         appProfile: APP_PROFILE,
@@ -6686,12 +6694,12 @@
       // 报价小数位数：实时保存并立即重算
       if (els.decimalPlaces) {
         els.decimalPlaces.addEventListener("input", () => {
-          APP_PROFILE.decimalPlaces = Math.max(0, Math.min(4, parseInt(els.decimalPlaces.value, 10) ?? 2));
+          APP_PROFILE.decimalPlaces = parseDecimalPlaces(els.decimalPlaces.value);
           saveToStorage("appProfile", APP_PROFILE);
           onCalculate();
         });
         els.decimalPlaces.addEventListener("change", () => {
-          APP_PROFILE.decimalPlaces = Math.max(0, Math.min(4, parseInt(els.decimalPlaces.value, 10) ?? 2));
+          APP_PROFILE.decimalPlaces = parseDecimalPlaces(els.decimalPlaces.value);
           els.decimalPlaces.value = APP_PROFILE.decimalPlaces;
           saveToStorage("appProfile", APP_PROFILE);
           onCalculate();
