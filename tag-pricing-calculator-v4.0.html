@@ -3493,6 +3493,7 @@
           area: singleArea,
           code: spec.code,
           unitPrice: paperUnitPrice,
+          originalUnitPrice: paperOriginalPrice,
           missing: paperUnitPrice == null,
           crafts: sheetCraftDetails
         });
@@ -3922,9 +3923,26 @@
       }
 
       els.resTier.textContent = result.tier + " 张";
-      // 占位需用 innerHTML 渲染（textContent 会把 HTML 当文本输出，导致徽章源码可见）
-      els.resPaperPrice.innerHTML = result.paperTotal ? "¥ " + formatMoney(result.paperTotal) : '<span class="price-missing">无该批量定价</span>';
-      els.resPaperOriginalPrice.innerHTML = result.paperOriginalTotal ? "¥ " + formatMoney(result.paperOriginalTotal) : '<span class="price-missing">无该批量定价</span>';
+      // 纸张价合计（折扣前）/ 纸张折后价合计：多纸张时显示 "¥价格1 + ¥价格2 = ¥合计"，合计蓝字
+      function renderPaperTotal(getPrice) {
+        const details = result.sheetDetails;
+        if (details.length === 1) {
+          const p = getPrice(details[0]);
+          return p != null ? "¥ " + formatMoney(p) : '<span class="price-missing">无该批量定价</span>';
+        }
+        // 多纸张：逐张价格 + = 合计
+        const parts = details.map(s => {
+          const p = getPrice(s);
+          return p != null ? "¥ " + formatMoney(p) : '<span class="price-missing">缺价</span>';
+        });
+        const total = getPrice(details[0]) != null && details.every(s => getPrice(s) != null);
+        const totalStr = total
+          ? '<span style="color:var(--brand);font-weight:600;">¥ ' + formatMoney(details.reduce((sum, s) => sum + getPrice(s), 0)) + '</span>'
+          : '<span class="price-missing">部分缺价</span>';
+        return parts.join(' + ') + ' = ' + totalStr;
+      }
+      els.resPaperOriginalPrice.innerHTML = renderPaperTotal(s => s.originalUnitPrice);
+      els.resPaperPrice.innerHTML = renderPaperTotal(s => s.unitPrice);
       els.resCraftPrice.innerHTML = result.craftTotal ? "¥ " + formatMoney(result.craftTotal) : '<span class="price-missing">无该批量定价</span>';
       els.resRopePrice.innerHTML = result.ropePrice != null ? "¥ " + formatMoney(result.ropePrice) : '<span class="price-missing">无该批量定价</span>';
       els.resShippingPrice.innerHTML = result.shippingPrice != null ? "¥ " + formatMoney(result.shippingPrice) : '<span class="price-missing">无该批量定价</span>';
