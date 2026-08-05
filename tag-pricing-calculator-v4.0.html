@@ -566,6 +566,47 @@
       color: var(--danger);
     }
 
+    /* 批量档位快速切换 */
+    .tier-quick-switch {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 12px 0;
+      border-top: 1px dashed var(--border);
+      margin-top: 8px;
+    }
+    .tier-quick-label {
+      font-size: 13px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+    .tier-quick-btns {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .tier-quick-btn {
+      padding: 5px 14px;
+      font-size: 13px;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      background: #fff;
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .tier-quick-btn:hover {
+      border-color: var(--brand);
+      color: var(--brand);
+    }
+    .tier-quick-btn.active {
+      background: var(--brand);
+      border-color: var(--brand);
+      color: #fff;
+      font-weight: 600;
+    }
+
     /* ===================== 报价表查询页 ===================== */
     .table-toolbar {
       display: flex;
@@ -1060,7 +1101,7 @@
           </div>
           <div class="form-group">
             <label for="sheetCount">纸张数量（张）</label>
-            <input type="number" id="sheetCount" min="1" step="1" value="1">
+            <input type="number" id="sheetCount" min="1" step="1" value="2">
           </div>
         </div>
 
@@ -1454,6 +1495,10 @@
             <span class="result-value" id="resTier">-</span>
           </div>
           <div class="result-row">
+            <span class="result-label">纸张价合计（折扣前）</span>
+            <span class="result-value" id="resPaperOriginalPrice">-</span>
+          </div>
+          <div class="result-row">
             <span class="result-label">纸张折后价合计</span>
             <span class="result-value" id="resPaperPrice">-</span>
           </div>
@@ -1474,6 +1519,10 @@
             <span class="result-value" id="resCost">-</span>
           </div>
           <div id="resWarnings" class="result-warnings" style="display:none;"></div>
+          <div id="tierQuickSwitch" class="tier-quick-switch" style="display:none;">
+            <span class="tier-quick-label">快速切换档位：</span>
+            <div class="tier-quick-btns" id="tierQuickBtns"></div>
+          </div>
           <div id="priceCards" class="price-cards"></div>
         </div>
       </div>
@@ -3378,6 +3427,7 @@
 
       // 逐张纸计算：每张纸有独立的宽、长、尺寸类型
       let paperTotal = 0;
+      let paperOriginalTotal = 0; // 折扣前纸张价合计
       let craftTotal = 0;
       const warnings = [];
       const sheetDetails = [];
@@ -3403,11 +3453,15 @@
         const paperUnitPrice = hasExactTier(spec.prices, tier)
           ? Number(spec.prices[tier]) * paper.discount
           : null;
+        const paperOriginalPrice = hasExactTier(spec.prices, tier)
+          ? Number(spec.prices[tier])
+          : null;
         if (paperUnitPrice == null) {
           hasMissingTier = true;
           warnings.push(`「${paper.shortName || paper.name}」无 ${tier} 张批量定价`);
         } else {
           paperTotal += paperUnitPrice;
+          paperOriginalTotal += paperOriginalPrice;
         }
 
         // 工艺费用：每个工艺独立检查档位，无值则跳过并提示
@@ -3483,6 +3537,7 @@
         sheetDetails,
         tier,
         paperTotal,
+        paperOriginalTotal,
         craftTotal,
         ropePrice,
         shippingPrice,
@@ -3510,6 +3565,9 @@
       resSheetTable: document.getElementById("resSheetTable"),
       resTier: document.getElementById("resTier"),
       resPaperPrice: document.getElementById("resPaperPrice"),
+      resPaperOriginalPrice: document.getElementById("resPaperOriginalPrice"),
+      tierQuickSwitch: document.getElementById("tierQuickSwitch"),
+      tierQuickBtns: document.getElementById("tierQuickBtns"),
       resCraftPrice: document.getElementById("resCraftPrice"),
       resRopePrice: document.getElementById("resRopePrice"),
       resShippingPrice: document.getElementById("resShippingPrice"),
@@ -3645,7 +3703,7 @@
 
     // -------------------- 纸张设置卡片渲染 --------------------
     function renderSheets() {
-      const count = parseInt(els.sheetCount.value, 10) || 1;
+      const count = parseInt(els.sheetCount.value, 10) || 2;
       const newSheets = [];
 
       for (let i = 0; i < count; i++) {
@@ -3866,6 +3924,7 @@
       els.resTier.textContent = result.tier + " 张";
       // 占位需用 innerHTML 渲染（textContent 会把 HTML 当文本输出，导致徽章源码可见）
       els.resPaperPrice.innerHTML = result.paperTotal ? "¥ " + formatMoney(result.paperTotal) : '<span class="price-missing">无该批量定价</span>';
+      els.resPaperOriginalPrice.innerHTML = result.paperOriginalTotal ? "¥ " + formatMoney(result.paperOriginalTotal) : '<span class="price-missing">无该批量定价</span>';
       els.resCraftPrice.innerHTML = result.craftTotal ? "¥ " + formatMoney(result.craftTotal) : '<span class="price-missing">无该批量定价</span>';
       els.resRopePrice.innerHTML = result.ropePrice != null ? "¥ " + formatMoney(result.ropePrice) : '<span class="price-missing">无该批量定价</span>';
       els.resShippingPrice.innerHTML = result.shippingPrice != null ? "¥ " + formatMoney(result.shippingPrice) : '<span class="price-missing">无该批量定价</span>';
@@ -3891,6 +3950,27 @@
             : formatMoney(item.price) + '<span class="unit">元</span>'}</div>
         </div>
       `).join("");
+
+      // 渲染批量档位快速切换按钮
+      if (els.tierQuickSwitch && els.tierQuickBtns) {
+        const tierSet = new Set();
+        for (const paper of PAPER_CONFIG) {
+          for (const spec of paper.specs) {
+            Object.keys(spec.prices).forEach(t => tierSet.add(Number(t)));
+          }
+        }
+        const allTiers = Array.from(tierSet).sort((a, b) => a - b);
+        els.tierQuickBtns.innerHTML = allTiers.map(t =>
+          `<button class="tier-quick-btn${t === result.tier ? " active" : ""}" data-tier="${t}">${t}</button>`
+        ).join("");
+        els.tierQuickBtns.querySelectorAll(".tier-quick-btn").forEach(btn => {
+          btn.addEventListener("click", function() {
+            els.tier.value = this.dataset.tier;
+            onCalculate();
+          });
+        });
+        els.tierQuickSwitch.style.display = "flex";
+      }
     }
 
     function clearResult() {
@@ -3899,6 +3979,7 @@
       }
       els.resTier.textContent = "-";
       els.resPaperPrice.textContent = "-";
+      els.resPaperOriginalPrice.textContent = "-";
       els.resCraftPrice.textContent = "-";
       els.resRopePrice.textContent = "-";
       els.resShippingPrice.textContent = "-";
@@ -3906,6 +3987,9 @@
       if (els.resWarnings) {
         els.resWarnings.innerHTML = "";
         els.resWarnings.style.display = "none";
+      }
+      if (els.tierQuickSwitch) {
+        els.tierQuickSwitch.style.display = "none";
       }
       els.priceCards.innerHTML = "";
     }
