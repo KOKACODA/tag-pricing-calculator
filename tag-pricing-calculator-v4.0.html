@@ -4,7 +4,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex, nofollow, noarchive">
   <meta name="googlebot" content="noindex, nofollow">
-  <title>KOKALabel报价系统 v4.2</title>
+  <title>KOKALabel报价系统 v4.3</title>
   <script>
     // 加载失败的全局错误兜底，避免单个脚本失败阻塞整个页面
     window.addEventListener('error', function(e) {
@@ -1076,7 +1076,7 @@
       }
     }
 
-    /* ===================== 全端响应式适配 v4.2 ===================== */
+    /* ===================== 全端响应式适配 v4.2 + 架构层级 v4.3 ===================== */
     /* 根字体响应式缩放：13px(320px屏) → 16px(1200px+屏) */
     html {
       font-size: clamp(13px, calc(13px + 0.4vw), 16px);
@@ -1304,6 +1304,33 @@
     .table-toolbar input { min-width: min(160px, 100%); }
     .table-meta { font-size: clamp(0.6875rem, 3vw, 0.8125rem); }
     .paper-discount { font-size: clamp(0.6875rem, 3vw, 0.8125rem); }
+
+    /* Sheet 纸张选择器栏 */
+    .sheet-selector-bar {
+      margin-bottom: clamp(0.5rem, 2vw, 0.75rem);
+      display: flex;
+      align-items: center;
+      gap: clamp(0.375rem, 2vw, 0.625rem);
+      flex-wrap: wrap;
+    }
+    .paper-selector {
+      flex: 1;
+      min-width: min(200px, 100%);
+      padding: clamp(0.5rem, 2vw, 0.625rem) clamp(0.5rem, 2vw, 0.75rem);
+      font-size: clamp(0.8125rem, 3.5vw, 0.9375rem);
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      background: #fff;
+      cursor: pointer;
+      transition: border 0.2s, box-shadow 0.2s;
+      max-width: 100%;
+    }
+    .paper-selector:focus {
+      outline: none;
+      border-color: var(--brand);
+      box-shadow: 0 0 0 3px rgba(15, 111, 196, 0.15);
+    }
+
     .pagination { margin-top: clamp(0.75rem, 3vw, 1rem); }
     .btn {
       padding: clamp(0.5rem, 2.5vw, 0.625rem) clamp(0.75rem, 4vw, 1.125rem);
@@ -1932,6 +1959,11 @@
           <span class="table-meta" id="tableMeta">行数：0</span>
         </div>
 
+        <!-- Sheet 纸张选择器：下拉 + 数字分页 -->
+        <div class="sheet-selector-bar">
+          <select id="paperSelector" class="paper-selector"></select>
+        </div>
+
         <div class="table-wrap">
           <table id="priceTable">
             <thead>
@@ -1962,7 +1994,7 @@
           </table>
         </div>
 
-        <div class="pagination">
+        <div class="pagination" id="paginationBar">
           <button class="btn" id="prevPaper" disabled="">上一张</button>
           <span class="page-info" id="paperPageInfo">-</span>
           <button class="btn" id="nextPaper" disabled="">下一张</button>
@@ -2243,7 +2275,7 @@
         <div class="setting-row">
           <div class="setting-info">
             <div class="setting-label">当前版本</div>
-            <div class="setting-desc">KOKALabel报价系统 v4.2</div>
+            <div class="setting-desc">KOKALabel报价系统 v4.3</div>
           </div>
           <div class="setting-control">
             <span class="placeholder-badge">正式版</span>
@@ -2284,8 +2316,46 @@
     // 只修改下方的配置对象，无需改动其后的计算逻辑与渲染代码。
 
     /**
-     * 纸张基础价格配置（默认配置）
+     * ==================== 数据架构说明 ====================
+     *
+     * 三级层级关系：
+     *   小组（Group） → 总报价表（PriceList） → Sheet 纸张报价表（Paper）
+     *
+     * - 小组：一个独立团队/账号，拥有自己的总报价表集合。
+     *   当前硬编码为单小组，后续接入账号系统后可扩展多小组。
+     *   示例：1号小组、2号小组
+     *
+     * - 总报价表：一个小组的完整报价数据集合，对应一个 Excel 文件。
+     *   当前硬编码为"1号报价表"，后续可扩展"2号报价表""3号报价表"等。
+     *   导入导出时，一个总报价表 = 一个 Excel 文件（含多个 Sheet）。
+     *
+     * - Sheet 纸张报价表：总报价表内的单张纸报价数据，对应 Excel 的一个 Sheet。
+     *   每张纸含多个规格（code）× 多个档位（tier）的价格矩阵。
+     *   当前 9 张纸张，后续不同总报价表可含不同数量的 Sheet（可达 30+）。
+     *
+     * 当前阶段：单小组 + 单总报价表（1号报价表）+ 9 张 Sheet 纸张
+     * 后续扩展：无需改动计算逻辑，仅需增加数据配置或接入 API 拉取。
+     * ====================================================
+     */
+
+    /**
+     * 当前小组与总报价表元信息
+     */
+    const GROUP_META = {
+      id: "group1",
+      name: "1号小组"
+    };
+
+    const PRICE_LIST_META = {
+      id: "priceList1",
+      name: "1号报价表",
+      groupId: GROUP_META.id
+    };
+
+    /**
+     * Sheet 纸张报价表配置（默认配置）
      * specs 必须按面积从小到大排列；007 与 008 必须完全一致；009 与 100 保持原始数据。
+     * 每张纸属于当前总报价表（PRICE_LIST_META.id）。
      */
     const DEFAULT_PAPER_CONFIG = [
   {
@@ -3976,6 +4046,7 @@
       prevPaper: document.getElementById("prevPaper"),
       nextPaper: document.getElementById("nextPaper"),
       paperPageInfo: document.getElementById("paperPageInfo"),
+      paperSelector: document.getElementById("paperSelector"),
       paperNotes: document.getElementById("paperNotes"),
       toast: document.getElementById("toast"),
       // 扩展页元素
@@ -4119,9 +4190,11 @@
         card.className = "sheet-card";
 
         const currentPaper = PAPER_CONFIG.find(p => p.id === sheet.paperId) || PAPER_CONFIG[0];
-        const paperOptions = PAPER_CONFIG.map(p => `
+        // Sheet 数量 > 10 时显示编号前缀，方便快速定位
+        const showPaperIndex = PAPER_CONFIG.length > 10;
+        const paperOptions = PAPER_CONFIG.map((p, pIdx) => `
           <div class="paper-option${p.id === sheet.paperId ? " active" : ""}" data-sheet="${index}" data-paper="${p.id}">
-            <span class="paper-name">${escapeHtml(p.shortName || p.name)}</span>
+            <span class="paper-name">${showPaperIndex ? (pIdx + 1) + ". " : ""}${escapeHtml(p.shortName || p.name)}</span>
             <span class="paper-desc">${escapeHtml(p.name)}</span>
           </div>
         `).join("");
@@ -4508,10 +4581,15 @@
 
       els.paperDiscount.textContent = `${paper.name} | ${paper.discount === 1 ? "无折扣" : (paper.discount * 10).toFixed(1) + "折"}`;
       els.tableMeta.textContent = `行数：${filtered.length} / ${paper.specs.length}`;
-      els.paperPageInfo.textContent = `${currentPaperIndex + 1} / ${PAPER_CONFIG.length}`;
+      els.paperPageInfo.textContent = `第 ${currentPaperIndex + 1} / ${PAPER_CONFIG.length} 张`;
       els.prevPaper.disabled = currentPaperIndex === 0;
       els.nextPaper.disabled = currentPaperIndex === PAPER_CONFIG.length - 1;
       els.paperNotes.textContent = `备注：当前展示「${paper.name}」1号报价表。007 与 008 合并为 007/008；匹配面积超过 10000 mm² 时请与上级联系。`;
+
+      // 同步下拉选择器
+      if (els.paperSelector) {
+        syncPaperSelector();
+      }
 
       // 渲染工艺价格表
       const crafts = CRAFT_CONFIG[paper.id] || [];
@@ -4530,6 +4608,22 @@
             </tr>
           `).join("")
         : '<tr><td colspan="' + (tiers.length + 1) + '" style="text-align:center;color:var(--text-secondary);">该纸张暂无工艺配置</td></tr>';
+    }
+
+    // -------------------- Sheet 纸张选择器 --------------------
+    /**
+     * 同步下拉选择器：填充选项并选中当前纸张
+     * 当 Sheet 数量 > 10 时显示编号前缀，方便快速定位
+     */
+    function syncPaperSelector() {
+      if (!els.paperSelector) return;
+      const showIndex = PAPER_CONFIG.length > 10;
+      els.paperSelector.innerHTML = PAPER_CONFIG.map((p, i) => {
+        const label = showIndex
+          ? `${i + 1}. ${escapeHtml(p.shortName || p.name)}`
+          : escapeHtml(p.shortName || p.name);
+        return `<option value="${i}"${i === currentPaperIndex ? " selected" : ""}>${label}</option>`;
+      }).join("");
     }
 
     // -------------------- 翻页 --------------------
@@ -4929,7 +5023,7 @@
 
     function exportLocalBackup() {
       const data = {
-        version: "4.2",
+        version: "4.3",
         kind: "local-backup",
         exportAt: new Date().toISOString(),
         customerLevels: CUSTOMER_LEVELS,
@@ -5016,7 +5110,7 @@
     // -------------------- 导入 / 导出完整配置 --------------------
     function exportFullData() {
       const data = {
-        version: "4.2",
+        version: "4.3",
         exportAt: new Date().toISOString(),
         customerLevels: CUSTOMER_LEVELS,
         appProfile: APP_PROFILE,
@@ -5127,6 +5221,8 @@
           ]
         : [];
       return [
+        ["所属小组", GROUP_META.name],
+        ["总报价表", PRICE_LIST_META.name],
         ["1号报价表全称", paper.name],
         ["简称", paper.shortName],
         ["折扣系数", paper.discount],
@@ -5166,6 +5262,8 @@
         // 1) 350铜版纸
         {
           meta: [
+            ["所属小组", "1号小组"],
+            ["总报价表", "1号报价表"],
             ["1号报价表全称", "1号报价表-1：350克 A级铜版纸 双面过哑胶（厚度0.38mm）"],
             ["简称", "350铜版纸"],
             ["折扣系数", 1],
@@ -5190,6 +5288,8 @@
         // 2) 400铜版纸
         {
           meta: [
+            ["所属小组", "1号小组"],
+            ["总报价表", "1号报价表"],
             ["1号报价表全称", "1号报价表-2：400克 A级铜版纸 双面过哑胶（厚度0.45mm）"],
             ["简称", "400铜版纸"],
             ["折扣系数", 0.91],
@@ -5220,6 +5320,8 @@
         // 3) 702铜版纸
         {
           meta: [
+            ["所属小组", "1号小组"],
+            ["总报价表", "1号报价表"],
             ["1号报价表全称", "1号报价表-3：702克 A级铜版纸 双面过哑胶（厚度0.85mm）"],
             ["简称", "702铜版纸"],
             ["折扣系数", 1],
@@ -5250,6 +5352,8 @@
         // 4) 606米白卡
         {
           meta: [
+            ["所属小组", "1号小组"],
+            ["总报价表", "1号报价表"],
             ["1号报价表全称", "1号报价表-4：米白卡 606克（厚度0.8mm）"],
             ["简称", "606米白卡"],
             ["折扣系数", 1],
@@ -5280,6 +5384,8 @@
         // 5) 500白卡纸
         {
           meta: [
+            ["所属小组", "1号小组"],
+            ["总报价表", "1号报价表"],
             ["1号报价表全称", "1号报价表-5：500克 白卡纸（厚度0.55mm）正面过哑胶"],
             ["简称", "500白卡纸"],
             ["折扣系数", 0.75],
@@ -5310,6 +5416,8 @@
         // 6) 海成专用
         {
           meta: [
+            ["所属小组", "1号小组"],
+            ["总报价表", "1号报价表"],
             ["1号报价表全称", "1号报价表-6：400克米白卡 / 160克半透卡 / 200克合成纸（海成专用 / 撕不烂）"],
             ["简称", "海成专用"],
             ["折扣系数", 0.75],
@@ -5339,6 +5447,8 @@
         // 7) 700布纹纸
         {
           meta: [
+            ["所属小组", "1号小组"],
+            ["总报价表", "1号报价表"],
             ["1号报价表全称", "1号报价表-7：700克 A级布纹纸 双面过光油（厚度0.85mm）"],
             ["简称", "700布纹纸"],
             ["折扣系数", 1],
@@ -5370,6 +5480,8 @@
         // 8) 600牛皮纸
         {
           meta: [
+            ["所属小组", "1号小组"],
+            ["总报价表", "1号报价表"],
             ["1号报价表全称", "1号报价表-8：600克 A级牛皮纸（厚度0.80mm）"],
             ["简称", "600牛皮纸"],
             ["折扣系数", 0.75],
@@ -5401,6 +5513,8 @@
         // 9) 40C棉麻布
         {
           meta: [
+            ["所属小组", "1号小组"],
+            ["总报价表", "1号报价表"],
             ["1号报价表全称", "1号报价表-9：棉麻布 40C 米白色"],
             ["简称", "40C棉麻布"],
             ["折扣系数", 0.75],
@@ -5441,7 +5555,9 @@
           t.craftRows.forEach((r) => rows.push(r));
         }
         const ws = XLSX.utils.aoa_to_sheet(rows);
-        XLSX.utils.book_append_sheet(wb, ws, t.meta[1][1] || ("Sheet" + (TEMPLATE_ROWS.indexOf(t) + 1)));
+        // 从 meta 中提取简称作为 Sheet 名（跳过架构层级行）
+        const shortNameMeta = t.meta.find(m => m[0] === "简称");
+        XLSX.utils.book_append_sheet(wb, ws, (shortNameMeta && shortNameMeta[1]) || ("Sheet" + (TEMPLATE_ROWS.indexOf(t) + 1)));
       });
 
       XLSX.writeFile(wb, "KOKALabel1号报价表模板_" + formatDateFile() + ".xlsx");
@@ -5468,10 +5584,16 @@
           return;
         }
 
-        // 读取表头信息区
-        const name = String(rows[0] && rows[0][1] || "").trim();
-        const shortName = String(rows[1] && rows[1][1] || "").trim();
-        const discountRaw = rows[2] && rows[2][1];
+        // 读取表头信息区（按标签匹配，兼容有无"所属小组"/"总报价表"行）
+        let name = "", shortName = "", discountRaw = "";
+        for (let i = 0; i < Math.min(rows.length, 8); i++) {
+          const label = String(rows[i] && rows[i][0] || "").trim();
+          const val = rows[i] && rows[i][1];
+          if (label === "所属小组" || label === "总报价表") continue; // 架构层级信息，解析时跳过
+          if (label === "1号报价表全称" || label === "报价表全称") name = String(val || "").trim();
+          else if (label === "简称") shortName = String(val || "").trim();
+          else if (label === "折扣系数") discountRaw = val;
+        }
         const discount = discountRaw === "" || discountRaw == null ? 1 : Number(discountRaw);
 
         if (!name) {
@@ -6045,6 +6167,13 @@
       if (els.searchInput) els.searchInput.addEventListener("input", renderPriceTable);
       if (els.prevPaper) els.prevPaper.addEventListener("click", prevPaper);
       if (els.nextPaper) els.nextPaper.addEventListener("click", nextPaper);
+      if (els.paperSelector) els.paperSelector.addEventListener("change", () => {
+        const idx = parseInt(els.paperSelector.value, 10);
+        if (!isNaN(idx) && idx >= 0 && idx < PAPER_CONFIG.length) {
+          currentPaperIndex = idx;
+          renderPriceTable();
+        }
+      });
 
       // 个人主页事件
       if (els.addLevelBtn) els.addLevelBtn.addEventListener("click", addCustomerLevel);
