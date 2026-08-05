@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>海洋吊牌报价系统 v4.0 全流程分析报告</title>
+<title>KOKALabel报价系统 v4.0 全流程分析报告</title>
 <style>
 :root {
   --bg: #f3f6fa;
@@ -86,7 +86,7 @@ footer { margin-top: 60px; padding-top: 24px; border-top: 2px solid var(--rule);
 <!-- 封面 -->
 <div class="cover">
   <span class="badge">v4.0</span>
-  <h1>海洋吊牌报价系统 全流程分析报告</h1>
+  <h1>KOKALabel报价系统 全流程分析报告</h1>
   <div class="subtitle">技术架构 / 运行机制 / 修复记录 / 优化方向</div>
   <div class="meta">报告日期：2026-08-05 | 文件大小：196KB | 代码行数：5,580</div>
 </div>
@@ -94,7 +94,7 @@ footer { margin-top: 60px; padding-top: 24px; border-top: 2px solid var(--rule);
 <!-- 1. 项目概述 -->
 <h2>1. 项目概述</h2>
 
-<p>海洋吊牌报价系统是一个面向吊牌制造行业的 <strong>纯前端报价计算工具</strong>，将纸张、工艺、吊绳、邮费四大成本要素按批量档位自动核算，并按客户等级（毛利系数）输出建议报价。整个应用打包在单一 HTML 文件中，无需后端服务器，部署到 Cloudflare Pages 即可通过网址访问。</p>
+<p>KOKALabel报价系统是一个面向吊牌制造行业的 <strong>纯前端报价计算工具</strong>，将纸张、工艺、吊绳、邮费四大成本要素按批量档位自动核算，并按客户等级（毛利系数）输出建议报价。整个应用打包在单一 HTML 文件中，无需后端服务器，部署到 Cloudflare Pages 即可通过网址访问。</p>
 
 <div class="stats">
   <div class="stat">
@@ -136,10 +136,10 @@ footer { margin-top: 60px; padding-top: 24px; border-top: 2px solid var(--rule);
     <tr><th>层级</th><th>技术</th><th>用途</th></tr>
   </thead>
   <tbody>
-    <tr><td>结构层</td><td>原生 HTML5</td><td>页面骨架，3 个页面（计算器 / 报价表 / 个人主页）通过 CSS 切换</td></tr>
+    <tr><td>结构层</td><td>原生 HTML5</td><td>页面骨架，3 个页面（计算器 / 1号报价表 / 个人主页）通过 CSS 切换</td></tr>
     <tr><td>表现层</td><td>原生 CSS3 + CSS 变量</td><td>主题色系、响应式布局、动画过渡</td></tr>
     <tr><td>逻辑层</td><td>原生 JavaScript（ES6+）</td><td>计算引擎、状态管理、事件处理、DOM 渲染</td></tr>
-    <tr><td>数据交换</td><td>SheetJS (xlsx 0.20.1)</td><td>Excel 报价表 / 吊绳 / 邮费的导入导出</td></tr>
+    <tr><td>数据交换</td><td>SheetJS (xlsx 0.20.1)</td><td>Excel 1号报价表 / 吊绳 / 邮费的导入导出</td></tr>
     <tr><td>本地存储</td><td>localStorage</td><td>客户等级、应用配置、快照、历史的持久化</td></tr>
     <tr><td>部署平台</td><td>Cloudflare Pages + GitHub</td><td>CDN 分发、版本管理</td></tr>
   </tbody>
@@ -156,7 +156,7 @@ footer { margin-top: 60px; padding-top: 24px; border-top: 2px solid var(--rule);
   <tbody>
     <tr><td>CSS 样式</td><td>1 - 1035</td><td>全局变量、布局、组件样式</td></tr>
     <tr><td>HTML 骨架</td><td>1036 - 2250</td><td>导航栏、3 个页面、设置面板</td></tr>
-    <tr><td>数据配置层</td><td>2251 - 3240</td><td>9 张纸张报价表、工艺、吊绳、邮费的 DEFAULT 常量</td></tr>
+    <tr><td>数据配置层</td><td>2251 - 3240</td><td>9 张纸张1号报价表、工艺、吊绳、邮费的 DEFAULT 常量</td></tr>
     <tr><td>计算逻辑层</td><td>3241 - 3370</td><td>面积计算、规格匹配、档位匹配、成本核算</td></tr>
     <tr><td>交互渲染层</td><td>3371 - 5580</td><td>DOM 渲染、事件绑定、Excel 导入导出、初始化</td></tr>
   </tbody>
@@ -222,7 +222,7 @@ footer { margin-top: 60px; padding-top: 24px; border-top: 2px solid var(--rule);
 </div>
 
 <div class="callout">
-  <strong>设计意图</strong>：测试阶段频繁更新云端报价表，通过 EPHEMERAL_KEYS 机制确保用户每次刷新都拿到最新数据，避免旧缓存覆盖。未来正式版可移除此限制，改为正常的 localStorage 持久化 + 云端同步。
+  <strong>设计意图</strong>：测试阶段频繁更新云端1号报价表，通过 EPHEMERAL_KEYS 机制确保用户每次刷新都拿到最新数据，避免旧缓存覆盖。未来正式版可移除此限制，改为正常的 localStorage 持久化 + 云端同步。
 </div>
 
 <!-- 4. v4.0 修复清单 -->
@@ -234,9 +234,9 @@ footer { margin-top: 60px; padding-top: 24px; border-top: 2px solid var(--rule);
 </div>
 <p><strong>修复</strong>：删除第 1036-2248 行全部 TRAE CSS，清理 <code>&lt;html&gt;</code> 标签上的 <code>data-theme</code> 和 <code>data-trae-theme</code> 属性。文件从 289KB 降至 196KB，减少 32%。</p>
 
-<h3>4.2 修复报价表小数位数不一致（Bug）</h3>
+<h3>4.2 修复1号报价表小数位数不一致（Bug）</h3>
 <div class="callout callout-danger">
-  <strong>问题</strong>：<code>renderPriceTable()</code> 中两处硬编码 <code>toFixed(2)</code>，未使用 <code>formatMoney()</code>，导致报价表页面不尊重用户设置的小数位数。
+  <strong>问题</strong>：<code>renderPriceTable()</code> 中两处硬编码 <code>toFixed(2)</code>，未使用 <code>formatMoney()</code>，导致1号报价表页面不尊重用户设置的小数位数。
 </div>
 <p><strong>修复</strong>：将 <code>Number(v).toFixed(2)</code> 替换为 <code>formatMoney(Number(v))</code>，统一走 <code>parseDecimalPlaces</code> 逻辑。</p>
 
@@ -290,7 +290,7 @@ footer { margin-top: 60px; padding-top: 24px; border-top: 2px solid var(--rule);
 <h3>长期（3+ 月）</h3>
 <ul>
   <li><strong>框架迁移</strong>：迁移至 Vue 3 / React，利用响应式数据绑定替代手动 DOM 操作，降低渲染层复杂度</li>
-  <li><strong>权限管理</strong>：区分管理员（可改报价表）和普通用户（只能计算报价），配合云端同步</li>
+  <li><strong>权限管理</strong>：区分管理员（可改1号报价表）和普通用户（只能计算报价），配合云端同步</li>
   <li><strong>多语言支持</strong>：抽取 i18n 文本，支持中英文切换，为海外业务做准备</li>
   <li><strong>数据分析</strong>：基于历史报价记录生成统计报表（月度报价量、客户分布、热门纸张排行等）</li>
 </ul>
@@ -311,7 +311,7 @@ footer { margin-top: 60px; padding-top: 24px; border-top: 2px solid var(--rule);
 </div>
 
 <footer>
-  <p>海洋吊牌报价系统 v4.0 全流程分析报告 | 生成日期：2026-08-05</p>
+  <p>KOKALabel报价系统 v4.0 全流程分析报告 | 生成日期：2026-08-05</p>
   <p>部署地址：https://5c3a77e6.tag-pricing-calculator.pages.dev</p>
 </footer>
 

@@ -4,7 +4,7 @@
 
 ## 项目概述
 
-- **项目名**：海洋吊牌报价系统
+- **项目名**：KOKALabel报价系统
 - **主文件**：`tag-pricing-calculator-v4.0.html`（单文件应用，含全部 HTML/CSS/JS）
 - **部署入口**：`index.html`（与主文件保持同步）
 - **部署平台**：Cloudflare Pages（通过 GitHub 自动构建）
