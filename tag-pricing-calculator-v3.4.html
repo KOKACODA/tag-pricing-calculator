@@ -3735,10 +3735,13 @@
       els.sheetList.querySelectorAll("input[type=checkbox][data-craft]").forEach(cb => {
         cb.addEventListener("change", onCraftChange);
       });
-      // 绑定每张纸的尺寸输入
-      els.sheetList.querySelectorAll(".sheet-width, .sheet-length, .sheet-size-type").forEach(input => {
+      // 绑定每张纸的尺寸输入（input 元素同时绑定 input+change，select 元素仅绑定 change 避免双触发）
+      els.sheetList.querySelectorAll(".sheet-width, .sheet-length").forEach(input => {
         input.addEventListener("input", onSheetSizeChange);
         input.addEventListener("change", onSheetSizeChange);
+      });
+      els.sheetList.querySelectorAll(".sheet-size-type").forEach(sel => {
+        sel.addEventListener("change", onSheetSizeChange);
       });
 
       // 若第一张纸发生变化，需要更新档位选项
