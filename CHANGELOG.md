@@ -5,6 +5,24 @@
 
 ---
 
+## [v4.2] - 2026-08-05
+
+### 新增
+- **全端响应式 UI 适配**：实现 Web 桌面、iOS 移动端、安卓移动端全平台响应式布局
+  - 根字体 `clamp(13px, calc(13px + 0.4vw), 16px)` 响应式缩放，所有字体改用 rem/vw 相对单位，禁止硬编码 px
+  - 所有容器、卡片、模块使用 `clamp()` 相对单位自适应，禁止固定宽高
+  - 新增 3 个响应式断点：平板(≤768px)、手机(≤480px)、超小屏(≤360px)
+  - iOS 安全区域适配（`env(safe-area-inset-*)`），支持刘海屏/底部安全区
+- **下拉弹窗视口边界检测**：纸张下拉弹窗打开时自动检测视口边界
+  - 下方空间不足时向上翻转（flip-up）
+  - 右侧溢出时左移（shift-left）
+  - 超小屏弹窗超出容器时切换全屏固定定位（full-width）
+  - 滚动/旋转屏幕时自动关闭下拉，避免定位错乱
+- **盒子溢出防护**：全局 `overflow-x: hidden`、`overflow-wrap: break-word`，卡片容器 `overflow: hidden`，文本节点 `text-overflow: ellipsis`，防止内容溢出
+- **图形组件防溢出**：`img/video/canvas/svg { max-width: 100%; height: auto }` 通用规则
+
+---
+
 ## [v4.1.2] - 2026-08-05
 
 ### 变更
